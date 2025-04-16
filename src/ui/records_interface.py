@@ -594,7 +594,7 @@ class RecordsInterface:
         # Display errors in a new window
         error_window = tk.Toplevel(self.root)
         error_window.title(f"Erreurs pour l'Enregistrement #{record_id}")
-        error_window.geometry("600x400")
+        error_window.geometry("800x500")
         error_window.transient(self.root)
         error_window.grab_set()
 
@@ -656,12 +656,12 @@ class RecordsInterface:
         button_frame = ttk.Frame(main_frame, style='TFrame')
         button_frame.pack(fill=tk.X, pady=10)
 
-        ttk.Button(button_frame, text="Ajouter Erreur",
-                   command=lambda: self.add_error_to_record(record),
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Supprimer l'Erreur Sélectionnée",
-                   command=lambda: self.delete_selected_error(record, error_tree),
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
+        # ttk.Button(button_frame, text="Ajouter Erreur",
+        #            command=lambda: self.add_error_to_record(record),
+        #            style='Action.TButton').pack(side=tk.LEFT, padx=5)
+        # ttk.Button(button_frame, text="Supprimer l'Erreur Sélectionnée",
+        #            command=lambda: self.delete_selected_error(record, error_tree),
+        #            style='Action.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Fermer",
                    command=lambda: self.close_error_window(error_window, record),
                    style='TButton').pack(side=tk.RIGHT, padx=5)
@@ -745,7 +745,7 @@ class RecordsInterface:
             ttk.Label(form_frame, text=label + ":", style='TLabel').grid(row=idx, column=0, sticky=tk.W, padx=5, pady=5)
 
             if field == "punch_type":
-                var = tk.IntVar(value=0)  # Default to IN (0)
+                var = tk.StringVar(value="0 - Entrée")  # Default to IN (0)
                 combo = ttk.Combobox(form_frame, textvariable=var, values=[
                     "0 - Entrée",
                     "1 - Sortie"
@@ -891,7 +891,7 @@ class RecordsInterface:
             ttk.Label(form_frame, text=label + ":", style='TLabel').grid(row=idx, column=0, sticky=tk.W, padx=5, pady=5)
 
             if field == "punch_type":
-                var = tk.IntVar(value=value)
+                var = tk.StringVar(value=value)
                 combo = ttk.Combobox(form_frame, textvariable=var, values=[
                     "0 - Entrée",
                     "1 - Sortie"

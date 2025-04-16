@@ -144,7 +144,7 @@ class SQLiteAttendanceRepository(SQLiteRepositoryBase, AttendanceRepository):
             if not record.uid:
                 cursor.execute('SELECT MAX(uid) FROM attendance_records')
                 max_uid = cursor.fetchone()[0]
-                record.uid = max_uid + 1 if max_uid and max_uid > 2000000 else 2000000
+                record.uid = max_uid + 1 if max_uid and max_uid >= 2000000 else 2000000
 
             errors_json = json.dumps(record.errors) if record.errors else None
 

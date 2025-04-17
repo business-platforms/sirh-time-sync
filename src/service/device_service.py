@@ -84,6 +84,7 @@ class DeviceService:
 
     def set_user(self, user_id: int, code: str) -> bool:
         """Add a user to the device."""
+        logger.info("Entering The set_user function to save the user to the device")
         if not self.connection or not self.connection.conn:
             if not self.connect():
                 logger.error("Not connected to ZK device")

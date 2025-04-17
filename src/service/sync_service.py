@@ -34,6 +34,7 @@ class SyncService:
                 logger.warning("No employees found from API")
                 return 0
 
+            logger.debug(f"{len(employees)} employees fetched from the API")
             # Get existing users from device
             device_users = self.device_service.get_users()
             saved_codes = {user.name for user in device_users}
@@ -53,7 +54,10 @@ class SyncService:
                     continue
 
                 if self.device_service.set_user(emp_id, code):
+                    logger.debug(f"employee with id: {emp_id} has been saved successfully")
                     imported += 1
+                else:
+                    logger.debug(f"Error saving employee with id: {emp_id} ")
 
             logger.info(f"Imported {imported} users from API to device")
             return imported

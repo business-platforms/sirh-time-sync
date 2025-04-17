@@ -104,9 +104,8 @@ class APIService:
 
     def get_auth_headers(self) -> Dict[str, str]:
         """Get headers with authentication tokens."""
-        if not self.jwt_token or not self.xsrf_token:
-            if not self.authenticate():
-                raise Exception("Authentication required")
+        if not self.authenticate():
+            raise Exception("Authentication required")
 
         return {
             'X-XSRF-TOKEN': self.xsrf_token,

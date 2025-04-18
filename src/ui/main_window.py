@@ -1,4 +1,3 @@
-# src/ui/main_window.py
 import os
 import sys
 import logging
@@ -16,16 +15,25 @@ logger = logging.getLogger(__name__)
 
 
 class MainWindow:
-    """Main application window with updated modern design."""
+    """Main application window with updated modern design and responsive layout."""
 
     # Define color constants
     COLOR_PRIMARY = "#24398E"  # Blue header color
-    COLOR_BACKGROUND = "#FFFFFF"  # White background
+    COLOR_BACKGROUND = "#F5F7FA"  # Light gray-blue background for better contrast
     COLOR_SUCCESS = "#4CAF50"  # Green for success states
     COLOR_ERROR = "#F44336"  # Red for error/stopped states
     COLOR_WARNING = "#FF9800"  # Orange for warning states
     COLOR_NEUTRAL = "#757575"  # Gray for neutral states
     COLOR_CARD = "#FFFFFF"  # White card background
+    COLOR_BORDER = "#E0E6ED"  # Soft blue-gray for borders
+
+    # Minimum dimensions
+    MIN_WIDTH = 640
+    MIN_HEIGHT = 680
+
+    # Default dimensions for medium-sized screens
+    DEFAULT_WIDTH = 820
+    DEFAULT_HEIGHT = 900
 
     def __init__(self, application: Application):
         self.app = application
@@ -59,53 +67,41 @@ class MainWindow:
         self.test_results_label = None
         self.logo_img = None
 
+        # Layout references
+        self.main_frame = None
+        self.columns_frame = None
+        self.left_column = None
+        self.right_column = None
+        self.current_layout = "dual"  # Keep track of current layout: "dual" or "single"
+
         # Connection test status
         self.connectivity_success = False
 
         logger.info("Main window initializing")
 
     def setup_ui(self):
-        """Set up the modern user interface."""
+        """Set up the modern user interface with responsive layout."""
         # Configure window basics
         self.root.title("Panneau de Contrôle du Système de Présence")
-        self.root.geometry("820x900")
-        self.root.minsize(820, 900)
+
+        # Set initial size based on screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
+        # Determine appropriate window size
+        width = min(self.DEFAULT_WIDTH, int(screen_width * 0.8))
+        height = min(self.DEFAULT_HEIGHT, int(screen_height * 0.8))
+
+        # Set geometry and constraints
+        self.root.geometry(f"{width}x{height}")
+        self.root.minsize(self.MIN_WIDTH, self.MIN_HEIGHT)
         self.root.resizable(True, True)
 
         # Configure styles for modern look
-        style = ttk.Style()
-        style.theme_use('clam')
+        self.setup_styles()
 
         # Set base colors
         self.root.configure(background=self.COLOR_BACKGROUND)
-
-        # Configure styles
-        style.configure('TFrame', background=self.COLOR_BACKGROUND)
-        style.configure('Header.TFrame', background=self.COLOR_PRIMARY)
-        style.configure('Card.TFrame', background=self.COLOR_CARD, relief='flat', borderwidth=0)
-
-        style.configure('TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 10))
-        style.configure('Card.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 10))
-        style.configure('Header.TLabel', background=self.COLOR_PRIMARY, foreground='white',
-                        font=('Segoe UI', 12, 'bold'))
-        style.configure('Title.TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 14, 'bold'))
-        style.configure('SectionTitle.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 12, 'bold'))
-
-        # Status label styles
-        style.configure('Success.TLabel', foreground=self.COLOR_SUCCESS, background=self.COLOR_CARD)
-        style.configure('Error.TLabel', foreground=self.COLOR_ERROR, background=self.COLOR_CARD)
-        style.configure('Warning.TLabel', foreground=self.COLOR_WARNING, background=self.COLOR_CARD)
-        style.configure('Neutral.TLabel', foreground=self.COLOR_NEUTRAL, background=self.COLOR_CARD)
-
-        # Button styles
-        style.configure('TButton', font=('Segoe UI', 10), padding=6)
-        style.configure('Start.TButton', background='#f0f0f0')
-        style.configure('Stop.TButton', background=self.COLOR_ERROR)
-        style.configure('Action.TButton', padding=8)
-
-        # Card styles
-        style.configure('Card.TLabelframe', background=self.COLOR_CARD, borderwidth=0)
-        style.configure('Card.TLabelframe.Label', background=self.COLOR_CARD)
 
         # Load Logo
         self.load_logo()
@@ -123,13 +119,13 @@ class MainWindow:
                                 style='Header.TLabel')
         title_label.pack(side=tk.LEFT, padx=15, pady=10)
 
-        # Main content area
-        main_frame = ttk.Frame(self.root, padding=15, style='TFrame')
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # Main content area with increased padding
+        self.main_frame = ttk.Frame(self.root, padding=20, style='TFrame')
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Title with logos
-        title_frame = ttk.Frame(main_frame, style='TFrame')
-        title_frame.pack(fill=tk.X, pady=(10, 20))
+        title_frame = ttk.Frame(self.main_frame, style='TFrame')
+        title_frame.pack(fill=tk.X, pady=(5, 20))
 
         # Global project logo on the left
         if hasattr(self, 'global_logo_img'):
@@ -145,97 +141,12 @@ class MainWindow:
             app_logo_label = ttk.Label(title_frame, image=self.app_logo_img, background=self.COLOR_BACKGROUND)
             app_logo_label.pack(side=tk.RIGHT, padx=(10, 0))
 
-        # Create two-column layout for cards
-        columns_frame = ttk.Frame(main_frame, style='TFrame')
-        columns_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Left column
-        left_column = ttk.Frame(columns_frame, style='TFrame')
-        left_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-
-        # Right column
-        right_column = ttk.Frame(columns_frame, style='TFrame')
-        right_column.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
-
-        # System Controls Card
-        controls_card = self.create_card(left_column, "Contrôles du Système")
-
-        # Status row in controls card
-        status_frame = ttk.Frame(controls_card, style='Card.TFrame')
-        status_frame.pack(fill=tk.X, pady=5)
-
-        status_label = ttk.Label(status_frame, text="Statut:", style='Card.TLabel')
-        status_label.pack(side=tk.LEFT)
-
-        self.status_label = ttk.Label(status_frame, textvariable=self.status_var,
-                                      style='Success.TLabel' if self.app.is_running() else 'Error.TLabel')
-        self.status_label.pack(side=tk.LEFT, padx=10)
-
-        # Buttons row
-        buttons_frame = ttk.Frame(controls_card, style='Card.TFrame')
-        buttons_frame.pack(fill=tk.X, pady=10)
-
-        self.start_button = ttk.Button(buttons_frame, text="► Démarrer le Système",
-                                       command=self.start_system, style='Action.TButton')
-        self.start_button.pack(side=tk.LEFT, padx=(0, 5))
-
-        self.stop_button = ttk.Button(buttons_frame, text="■ Arrêter le Système",
-                                      command=self.stop_system, state=tk.DISABLED, style='Action.TButton')
-        self.stop_button.pack(side=tk.LEFT)
-
-        # Connection Tests Card
-        connection_card = self.create_card(left_column, "Tests de Connexion")
-
-        # Device connection status
-        self.device_status_label = ttk.Label(connection_card, textvariable=self.device_test_var,
-                                             style='Neutral.TLabel')
-        self.device_status_label.pack(anchor=tk.W, pady=5)
-
-        # API connection status
-        self.api_status_label = ttk.Label(connection_card, textvariable=self.api_test_var,
-                                          style='Neutral.TLabel')
-        self.api_status_label.pack(anchor=tk.W, pady=5)
-
-        # Test button
-        test_button_frame = ttk.Frame(connection_card, style='Card.TFrame')
-        test_button_frame.pack(fill=tk.X, pady=10)
-
-        self.test_button = ttk.Button(test_button_frame, text="Relancer les Tests de Connexion",
-                                      command=self.test_connections, style='Action.TButton')
-        self.test_button.pack(pady=5)
-
-        # Test results
-        self.test_results_label = ttk.Label(connection_card, textvariable=self.test_results_var,
-                                            style='Success.TLabel')
-        self.test_results_label.pack(anchor=tk.W, pady=5)
-
-        # System Information Card
-        info_card = self.create_card(right_column, "Informations Système")
-
-        # Component status indicators with checkmarks
-        self.collector_status_label = ttk.Label(info_card, textvariable=self.collector_status_var,
-                                                style='Success.TLabel')
-        self.collector_status_label.pack(anchor=tk.W, pady=5)
-
-        self.uploader_status_label = ttk.Label(info_card, textvariable=self.uploader_status_var,
-                                               style='Success.TLabel')
-        self.uploader_status_label.pack(anchor=tk.W, pady=5)
-
-        self.user_importer_status_label = ttk.Label(info_card, textvariable=self.user_importer_status_var,
-                                                    style='Success.TLabel')
-        self.user_importer_status_label.pack(anchor=tk.W, pady=5)
-
-        # Separator
-        ttk.Separator(info_card, orient='horizontal').pack(fill=tk.X, pady=10)
-
-        # Timestamp information
-        ttk.Label(info_card, textvariable=self.last_collection_var, style='Card.TLabel').pack(anchor=tk.W, pady=3)
-        ttk.Label(info_card, textvariable=self.last_upload_var, style='Card.TLabel').pack(anchor=tk.W, pady=3)
-        ttk.Label(info_card, textvariable=self.last_import_var, style='Card.TLabel').pack(anchor=tk.W, pady=3)
+        # Create the layout based on initial window size
+        self.create_responsive_layout()
 
         # Bottom toolbar for navigation buttons
-        toolbar_frame = ttk.Frame(main_frame, style='TFrame')
-        toolbar_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(20, 0))
+        toolbar_frame = ttk.Frame(self.main_frame, style='TFrame')
+        toolbar_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(25, 0))
 
         # Modern flat buttons with icons
         ttk.Button(toolbar_frame, text="⚙ Configurer", command=self.open_config,
@@ -251,68 +162,302 @@ class MainWindow:
         # Set up close handler
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+        # Bind resize event
+        self.root.bind("<Configure>", self.on_window_resize)
+
         # Show the window
         self.root.deiconify()
+
+    def setup_styles(self):
+        """Configure ttk styles for the application."""
+        style = ttk.Style()
+        style.theme_use('clam')
+
+        # Configure styles
+        style.configure('TFrame', background=self.COLOR_BACKGROUND)
+        style.configure('Header.TFrame', background=self.COLOR_PRIMARY)
+        style.configure('Card.TFrame', background=self.COLOR_CARD, relief='flat', borderwidth=0)
+
+        style.configure('TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 10))
+        style.configure('Card.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 10))
+        style.configure('Header.TLabel', background=self.COLOR_PRIMARY, foreground='white',
+                        font=('Segoe UI', 12, 'bold'))
+        style.configure('Title.TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 16, 'bold'))
+        style.configure('SectionTitle.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 12, 'bold'))
+
+        # Status label styles
+        style.configure('Success.TLabel', foreground=self.COLOR_SUCCESS, background=self.COLOR_CARD)
+        style.configure('Error.TLabel', foreground=self.COLOR_ERROR, background=self.COLOR_CARD)
+        style.configure('Warning.TLabel', foreground=self.COLOR_WARNING, background=self.COLOR_CARD)
+        style.configure('Neutral.TLabel', foreground=self.COLOR_NEUTRAL, background=self.COLOR_CARD)
+
+        # Button styles - improved padding and appearance
+        style.configure('TButton', font=('Segoe UI', 10), padding=8)
+        style.configure('Start.TButton', background='#f0f0f0')
+        style.configure('Stop.TButton', background=self.COLOR_ERROR)
+        style.configure('Action.TButton', padding=10)
+
+        # Card styles
+        style.configure('Card.TLabelframe', background=self.COLOR_CARD, borderwidth=0)
+        style.configure('Card.TLabelframe.Label', background=self.COLOR_CARD)
+
+    def create_responsive_layout(self):
+        """Create responsive layout based on window width."""
+        # Get current window width
+        width = self.root.winfo_width()
+
+        # Remove existing layout if it exists
+        if self.columns_frame:
+            self.columns_frame.destroy()
+
+        # Create new container for layout
+        self.columns_frame = ttk.Frame(self.main_frame, style='TFrame')
+        self.columns_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Decision point for layout type
+        if width <= self.MIN_WIDTH + 100 and self.current_layout != "single":
+            # Switch to single column layout for small screens
+            self.create_single_column_layout()
+            self.current_layout = "single"
+        elif width > self.MIN_WIDTH + 100 and self.current_layout != "dual":
+            # Switch to dual column layout for larger screens
+            self.create_dual_column_layout()
+            self.current_layout = "dual"
+        else:
+            # Use current layout type
+            if self.current_layout == "single":
+                self.create_single_column_layout()
+            else:
+                self.create_dual_column_layout()
+
+    def create_dual_column_layout(self):
+        """Create two-column layout."""
+        # Left column
+        self.left_column = ttk.Frame(self.columns_frame, style='TFrame')
+        self.left_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
+
+        # Right column
+        self.right_column = ttk.Frame(self.columns_frame, style='TFrame')
+        self.right_column.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(15, 0))
+
+        # Create cards in appropriate columns
+        self.create_system_controls(self.left_column)
+        self.create_connection_tests(self.left_column)
+        self.create_system_info(self.right_column)
+
+    def create_single_column_layout(self):
+        """Create single-column layout for smaller screens."""
+        # Create a single column
+        self.left_column = ttk.Frame(self.columns_frame, style='TFrame')
+        self.left_column.pack(fill=tk.BOTH, expand=True)
+
+        # Create all cards in the single column
+        self.create_system_controls(self.left_column)
+        self.create_connection_tests(self.left_column)
+        self.create_system_info(self.left_column)
+
+    def create_system_controls(self, parent):
+        """Create the System Controls card."""
+        controls_card = self.create_card(parent, "Contrôles du Système")
+
+        # Status row in controls card
+        status_frame = ttk.Frame(controls_card, style='Card.TFrame')
+        status_frame.pack(fill=tk.X, pady=10)
+
+        status_label = ttk.Label(status_frame, text="Statut:", style='Card.TLabel')
+        status_label.pack(side=tk.LEFT)
+
+        self.status_label = ttk.Label(status_frame, textvariable=self.status_var,
+                                      style='Success.TLabel' if self.app.is_running() else 'Error.TLabel')
+        self.status_label.pack(side=tk.LEFT, padx=10)
+
+        # Separator for visual division
+        ttk.Separator(controls_card, orient='horizontal').pack(fill=tk.X, pady=10)
+
+        # Buttons row with improved spacing
+        buttons_frame = ttk.Frame(controls_card, style='Card.TFrame')
+        buttons_frame.pack(fill=tk.X, pady=12)
+
+        self.start_button = ttk.Button(buttons_frame, text="► Démarrer le Système",
+                                       command=self.start_system, style='Action.TButton')
+        self.start_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.stop_button = ttk.Button(buttons_frame, text="■ Arrêter le Système",
+                                      command=self.stop_system, state=tk.DISABLED, style='Action.TButton')
+        self.stop_button.pack(side=tk.LEFT)
+
+    def create_connection_tests(self, parent):
+        """Create Connection Tests card."""
+        connection_card = self.create_card(parent, "Tests de Connexion")
+
+        # Device connection status
+        self.device_status_label = ttk.Label(connection_card, textvariable=self.device_test_var,
+                                             style='Neutral.TLabel')
+        self.device_status_label.pack(anchor=tk.W, pady=8)
+
+        # API connection status
+        self.api_status_label = ttk.Label(connection_card, textvariable=self.api_test_var,
+                                          style='Neutral.TLabel')
+        self.api_status_label.pack(anchor=tk.W, pady=8)
+
+        # Separator for visual division
+        ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
+
+        # Test button
+        test_button_frame = ttk.Frame(connection_card, style='Card.TFrame')
+        test_button_frame.pack(fill=tk.X, pady=12)
+
+        self.test_button = ttk.Button(test_button_frame, text="Relancer les Tests de Connexion",
+                                      command=self.test_connections, style='Action.TButton')
+        self.test_button.pack(pady=5)
+
+        # Test results
+        self.test_results_label = ttk.Label(connection_card, textvariable=self.test_results_var,
+                                            style='Success.TLabel')
+        self.test_results_label.pack(anchor=tk.W, pady=8)
+
+    def create_system_info(self, parent):
+        """Create System Information card."""
+        info_card = self.create_card(parent, "Informations Système")
+
+        # Component status indicators with checkmarks
+        self.collector_status_label = ttk.Label(info_card, textvariable=self.collector_status_var,
+                                                style='Success.TLabel')
+        self.collector_status_label.pack(anchor=tk.W, pady=8)
+
+        self.uploader_status_label = ttk.Label(info_card, textvariable=self.uploader_status_var,
+                                               style='Success.TLabel')
+        self.uploader_status_label.pack(anchor=tk.W, pady=8)
+
+        self.user_importer_status_label = ttk.Label(info_card, textvariable=self.user_importer_status_var,
+                                                    style='Success.TLabel')
+        self.user_importer_status_label.pack(anchor=tk.W, pady=8)
+
+        # Separator with more pronounced visual appearance
+        separator = ttk.Separator(info_card, orient='horizontal')
+        separator.pack(fill=tk.X, pady=15)
+
+        # Timestamp information with improved spacing
+        ttk.Label(info_card, textvariable=self.last_collection_var, style='Card.TLabel').pack(anchor=tk.W, pady=5)
+        ttk.Label(info_card, textvariable=self.last_upload_var, style='Card.TLabel').pack(anchor=tk.W, pady=5)
+        ttk.Label(info_card, textvariable=self.last_import_var, style='Card.TLabel').pack(anchor=tk.W, pady=5)
+
+    def on_window_resize(self, event):
+        """Handle window resize events."""
+        # Only respond to resize events for the main window, not child widgets
+        if event.widget == self.root:
+            # Avoid excessive updates by checking if width changed significantly
+            if (self.current_layout == "single" and event.width > self.MIN_WIDTH + 120) or \
+                    (self.current_layout == "dual" and event.width <= self.MIN_WIDTH + 100):
+                # Wait a short time and then update layout
+                self.root.after(100, self.create_responsive_layout)
 
     def create_card(self, parent, title):
         """Create a card with the given title in the parent frame."""
         # Create an outer frame that will have the background color
         outer_frame = ttk.Frame(parent, style='Card.TFrame')
-        outer_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        outer_frame.pack(fill=tk.BOTH, expand=True, pady=15)
 
         # Create rounded corners with Canvas
         card_canvas = tk.Canvas(outer_frame, bg=self.COLOR_CARD,
                                 highlightthickness=0)
         card_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Draw rounded rectangle
-        radius = 15  # Corner radius
-        card_canvas.create_rectangle(radius, 0,
-                                     card_canvas.winfo_reqwidth() - radius,
-                                     card_canvas.winfo_reqheight(),
-                                     fill=self.COLOR_CARD, outline="lightgray", width=1)
-        card_canvas.create_rectangle(0, radius,
-                                     card_canvas.winfo_reqwidth(),
-                                     card_canvas.winfo_reqheight() - radius,
-                                     fill=self.COLOR_CARD, outline="lightgray", width=1)
-        card_canvas.create_arc(0, 0, radius * 2, radius * 2,
-                               start=90, extent=90,
-                               fill=self.COLOR_CARD, outline="lightgray", width=1)
-        card_canvas.create_arc(card_canvas.winfo_reqwidth() - (radius * 2), 0,
-                               card_canvas.winfo_reqwidth(), radius * 2,
-                               start=0, extent=90,
-                               fill=self.COLOR_CARD, outline="lightgray", width=1)
-        card_canvas.create_arc(0, card_canvas.winfo_reqheight() - (radius * 2),
-                               radius * 2, card_canvas.winfo_reqheight(),
-                               start=180, extent=90,
-                               fill=self.COLOR_CARD, outline="lightgray", width=1)
-        card_canvas.create_arc(card_canvas.winfo_reqwidth() - (radius * 2),
-                               card_canvas.winfo_reqheight() - (radius * 2),
-                               card_canvas.winfo_reqwidth(), card_canvas.winfo_reqheight(),
-                               start=270, extent=90,
-                               fill=self.COLOR_CARD, outline="lightgray", width=1)
+        # Set minimum width for the canvas to prevent squashing
+        card_canvas.config(width=200, height=120)
+
+        # Draw rounded rectangle - we'll update this when the canvas resizes
+        card_canvas.bind("<Configure>", lambda e, c=card_canvas: self.update_card_corners(c))
 
         # Content frame inside the canvas
         content_frame = ttk.Frame(card_canvas, style='Card.TFrame')
-        card_canvas.create_window(card_canvas.winfo_reqwidth() / 2,
-                                  card_canvas.winfo_reqheight() / 2,
-                                  window=content_frame,
-                                  anchor="center",
-                                  width=card_canvas.winfo_reqwidth() - 20,
-                                  height=card_canvas.winfo_reqheight() - 20)
 
-        # Title area
+        # Place the frame in the canvas - we'll update this when the canvas resizes
+        card_canvas.create_window(10, 10, window=content_frame,
+                                  anchor="nw",
+                                  tags="content_window")
+
+        # Update window size when canvas changes
+        card_canvas.bind("<Configure>", lambda e, c=card_canvas, f=content_frame:
+        self.update_card_content(c, f))
+
+        # Title area with visual header
         title_frame = ttk.Frame(content_frame, style='Card.TFrame')
-        title_frame.pack(fill=tk.X, pady=(10, 5), padx=15)
+        title_frame.pack(fill=tk.X, pady=(15, 10), padx=15)
 
         title_label = ttk.Label(title_frame, text=title, style='SectionTitle.TLabel')
         title_label.pack(anchor=tk.W)
 
+        # Divider below title
+        ttk.Separator(content_frame, orient='horizontal').pack(fill=tk.X, padx=15)
+
         # Content area with padding
-        inner_content_frame = ttk.Frame(content_frame, style='Card.TFrame', padding=(15, 10))
+        inner_content_frame = ttk.Frame(content_frame, style='Card.TFrame', padding=(20, 15))
         inner_content_frame.pack(fill=tk.BOTH, expand=True)
 
         return inner_content_frame
+
+    def update_card_corners(self, canvas):
+        """Update card corners when canvas is resized."""
+        # Clear canvas
+        canvas.delete("corners")
+
+        # Get current dimensions
+        width = canvas.winfo_width()
+        height = canvas.winfo_height()
+
+        # Draw rounded rectangle
+        radius = 12  # Corner radius
+
+        # Draw rectangle parts with a subtle border
+        canvas.create_rectangle(radius, 0, width - radius, height,
+                                fill=self.COLOR_CARD, outline=self.COLOR_BORDER,
+                                width=1, tags="corners")
+        canvas.create_rectangle(0, radius, width, height - radius,
+                                fill=self.COLOR_CARD, outline=self.COLOR_BORDER,
+                                width=1, tags="corners")
+
+        # Draw corner arcs
+        canvas.create_arc(0, 0, radius * 2, radius * 2,
+                          start=90, extent=90,
+                          fill=self.COLOR_CARD, outline=self.COLOR_BORDER,
+                          width=1, tags="corners")
+        canvas.create_arc(width - (radius * 2), 0, width, radius * 2,
+                          start=0, extent=90,
+                          fill=self.COLOR_CARD, outline=self.COLOR_BORDER,
+                          width=1, tags="corners")
+        canvas.create_arc(0, height - (radius * 2), radius * 2, height,
+                          start=180, extent=90,
+                          fill=self.COLOR_CARD, outline=self.COLOR_BORDER,
+                          width=1, tags="corners")
+        canvas.create_arc(width - (radius * 2), height - (radius * 2), width, height,
+                          start=270, extent=90,
+                          fill=self.COLOR_CARD, outline=self.COLOR_BORDER,
+                          width=1, tags="corners")
+
+        # Add subtle drop shadow (optional visual enhancement)
+        shadow_offset = 3
+        shadow_color = "#E0E0E0"
+
+        canvas.create_rectangle(shadow_offset, shadow_offset,
+                                width + shadow_offset, height + shadow_offset,
+                                fill="", outline=shadow_color,
+                                width=0, tags="shadow")
+
+    def update_card_content(self, canvas, frame):
+        """Update content frame size when canvas is resized."""
+        # Delete and recreate the window to update size
+        canvas.delete("content_window")
+        width = canvas.winfo_width()
+        height = canvas.winfo_height()
+
+        # Update corners
+        self.update_card_corners(canvas)
+
+        # Create window with updated dimensions
+        canvas.create_window(width / 2, height / 2, window=frame,
+                             anchor="center", width=width - 20, height=height - 20,
+                             tags="content_window")
 
     def update_ui_based_on_config(self):
         """Update UI based on configuration existence."""

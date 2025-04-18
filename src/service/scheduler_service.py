@@ -57,10 +57,10 @@ class SchedulerService:
                 interval_unit = 'minutes'
             elif name == 'attendance_upload':
                 interval = config.upload_interval
-                interval_unit = 'hours'
+                interval_unit = 'minutes'
             elif name == 'user_import':
                 interval = config.import_interval
-                interval_unit = 'hours'
+                interval_unit = 'minutes'
             else:
                 logger.error(f"Unknown job name: {name}")
                 return None

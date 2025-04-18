@@ -213,7 +213,7 @@ class ConfigInterface:
         # Upload Interval
         upload_frame = ttk.Frame(card, style='Card.TFrame')
         upload_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(upload_frame, text="Intervalle de Téléchargement (heures):", style='Card.TLabel').pack(side=tk.LEFT,
+        ttk.Label(upload_frame, text="Intervalle de Téléchargement (minutes):", style='Card.TLabel').pack(side=tk.LEFT,
                                                                                                          padx=(0, 10))
         ttk.Entry(upload_frame, textvariable=self.upload_interval_var, width=40).pack(side=tk.LEFT, expand=True,
                                                                                       fill=tk.X)
@@ -221,7 +221,7 @@ class ConfigInterface:
         # User Import Interval
         import_frame = ttk.Frame(card, style='Card.TFrame')
         import_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(import_frame, text="Intervalle d'Importation des Utilisateurs (heures):", style='Card.TLabel').pack(
+        ttk.Label(import_frame, text="Intervalle d'Importation des Utilisateurs (minutes):", style='Card.TLabel').pack(
             side=tk.LEFT, padx=(0, 10))
         ttk.Entry(import_frame, textvariable=self.user_import_interval_var, width=40).pack(side=tk.LEFT, expand=True,
                                                                                            fill=tk.X)

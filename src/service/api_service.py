@@ -159,17 +159,34 @@ class APIService:
             logger.error(f"Error uploading attendance data: {e}")
             return {'success': False, 'message': str(e)}
 
-    def get_employees(self) -> List[Dict[str, Any]]:
-        """Get employee data from the API."""
+    def get_employees(self, page=0, size=5000, sort="id,asc") -> List[Dict[str, Any]]:
+        """
+        Get employee data from the API with pagination.
+
+        Args:
+            page: Page number (0-based)
+            size: Number of items per page
+            sort: Sort field and direction (e.g. "lastName,asc" or "firstName,desc")
+        """
         if not self._company_id:
             if not self.initialize():
                 return []
 
         try:
             headers = self.get_auth_headers()
+
+            # Define pagination parameters
+            params = {
+                "page": page,
+                "size": size,
+                "sort": sort,
+                "includeInactive": "false"
+            }
+
             response = self.session.get(
-                f"{self.api_url}/companymanagement/api/companies/{self._company_id}/employees/minimal?includeInactive=false",
-                headers=headers
+                f"{self.api_url}/companymanagement/api/companies/{self._company_id}/employees/minimal",
+                headers=headers,
+                params=params
             )
 
             if response.status_code == 200:

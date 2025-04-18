@@ -1,6 +1,7 @@
 # src/ui/users_interface.py
 import os
 import sys
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 import logging

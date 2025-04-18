@@ -282,8 +282,8 @@ class UsersInterface:
             self.status_label.config(style='Warning.TLabel')
             self.root.update()  # Force UI update
 
-            imported = self.sync_service.import_users_from_api_to_device()
-            self.show_success(f"{imported} utilisateurs importés avec succès")
+            threading.Thread(target=self.sync_service.import_users_from_api_to_device, daemon=True).start()
+            self.show_success(f"Le processus d'importation est en cours d'exécution en arrière-plan.")
 
             # Reload the user list after import
             self.load_users()

@@ -1,6 +1,9 @@
 # src/application.py
 import logging
 import os
+import threading
+import tkinter as tk
+from tkinter import messagebox
 from datetime import datetime
 from typing import Dict, Any
 
@@ -16,6 +19,7 @@ from src.service.attendance_service import AttendanceService
 from src.service.sync_service import SyncService
 from src.service.scheduler_service import SchedulerService
 from src.data.database_initializer import DatabaseInitializer
+from src.update_checker import UpdateChecker
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,8 @@ class Application:
         self.setup_logging()
         self.initialize_database()
         self.setup_dependencies()
+
+        self.update_checker = UpdateChecker("https://your-update-server.com/api/updates")
 
     def initialize_database(self):
         """Initialize the database schema."""
@@ -226,3 +232,65 @@ class Application:
             logger.error(f"Error in connection tests: {e}")
             results['error'] = str(e)
             return results
+
+    def check_for_updates(self, show_if_none=False):
+        """Check for application updates."""
+
+        def _check():
+            result = self.update_checker.check_for_updates()
+
+            if result.get("available", False):
+                # We have an update
+                if tk.messagebox.askyesno(
+                        "Mise à jour disponible",
+                        f"Une nouvelle version ({result['version']}) est disponible. Voulez-vous mettre à jour maintenant ?\n\n"
+                        f"Notes de version :\n{result['notes']}"
+                ):
+                    self.apply_update(result["url"])
+                elif show_if_none:
+                    tk.messagebox.showinfo(
+                        "Aucune mise à jour",
+                        f"Vous utilisez la dernière version ({self.update_checker.current_version})."
+                    )
+
+        # Run in background thread
+        threading.Thread(target=_check, daemon=True).start()
+
+    def apply_update(self, url):
+        """Download and apply the update."""
+
+        def _update():
+            # Show progress message
+            progress_window = tk.Toplevel()
+            progress_window.title("Téléchargement de la mise à jour")
+            progress_window.geometry("300x100")
+            progress_window.resizable(False, False)
+
+            tk.Label(
+                progress_window,
+                text="Téléchargement de la mise à jour...\nL'application redémarrera automatiquement.",
+                pady=20
+            ).pack()
+
+            # Download update
+            installer_path = self.update_checker.download_update(url)
+            progress_window.destroy()
+
+            if installer_path:
+                # Stop services before updating
+                self.stop_service()
+
+                # Apply update
+                self.update_checker.apply_update(installer_path)
+
+                # Exit application to allow installer to run
+                import sys
+                sys.exit(0)
+            else:
+                tk.messagebox.showerror(
+                    "Échec de la mise à jour",
+                    "Échec du téléchargement de la mise à jour. Veuillez réessayer plus tard."
+                )
+
+        # Run in background thread
+        threading.Thread(target=_update, daemon=True).start()

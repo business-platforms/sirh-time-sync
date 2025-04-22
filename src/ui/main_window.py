@@ -630,7 +630,7 @@ class MainWindow:
 
     def open_config(self):
         """Open the configuration window."""
-        config_window = ConfigInterface(self.root, self.app.container.get('config_repository'))
+        config_window = ConfigInterface(self.root, self.app.container.get('config_repository'), self.app)
         config_window.show()
 
         # After config window is closed, check if we need to update the UI

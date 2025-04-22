@@ -4,6 +4,8 @@ import os
 import logging
 from datetime import datetime
 
+from src.util.paths import get_database_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,11 +15,8 @@ class DatabaseInitializer:
     def __init__(self, db_path=None):
         """Initialize with database path."""
         if db_path is None:
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            db_path = os.path.join(base_dir, 'data', 'attendance.db')
-
-        # Ensure the data directory exists
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            # Use the persistent database path
+            db_path = get_database_path()
 
         self.db_path = db_path
         logger.info(f"Database initializer configured with path: {db_path}")

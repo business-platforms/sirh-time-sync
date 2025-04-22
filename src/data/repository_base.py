@@ -1,8 +1,10 @@
-# src/data/repository_base.py
+# Modify src/data/repository_base.py
+
 import os
 import sqlite3
 import logging
 from typing import Optional
+from src.util.paths import get_database_path
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +16,8 @@ class SQLiteRepositoryBase:
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            db_path = os.path.join(base_dir, 'data', 'attendance.db')
-
-            # Ensure data directory exists
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            # Use the persistent database path
+            db_path = get_database_path()
 
         self.db_path = db_path
 

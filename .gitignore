@@ -32,7 +32,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-installer/
 
 # Environments
 .env

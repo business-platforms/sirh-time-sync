@@ -52,10 +52,10 @@ args = [
     "--hidden-import=openpyxl",
     "--hidden-import=tkinter.simpledialog",
     # Exclude unnecessary packages to reduce size
-    "--exclude-module=matplotlib",
-    "--exclude-module=scipy",
-    "--exclude-module=numpy",
-    "--exclude-module=tkinter.test",
+    # "--exclude-module=matplotlib",
+    # "--exclude-module=scipy",
+    # "--exclude-module=numpy",
+    # "--exclude-module=tkinter.test",
     # Prevent temp directory from being cleaned
     "--distpath=./dist",
     "--workpath=./build",

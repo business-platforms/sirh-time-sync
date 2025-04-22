@@ -5,7 +5,6 @@
 #define AppURL "https://www.yourcompany.com"
 #define AppExeName "TimeAttendanceSystem.exe"
 #define AppDataFolder "TimeAttendanceSystem"
-
 [Setup]
 AppId={{5DAB2F70-8AC3-45C4-AE39-9F06BE1B4D5F}
 AppName={#AppName}
@@ -23,134 +22,128 @@ OutputBaseFilename=TimeAttendanceSystem-Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 PrivilegesRequired=admin
-SetupIconFile=assets\timesync-logo.ico
-UninstallDisplayIcon={app}\{#AppExeName}
+;SetupIconFile=assets\timesync-logo.ico  ; Commented out due to icon issues
+;UninstallDisplayIcon={app}\{#AppExeName}  ; Commented out due to icon issues
 WizardStyle=modern
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
-
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
-
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "startupicon"; Description: "Start the application when Windows starts"; GroupDescription: "Windows Startup"
-
 [Files]
 ; Main executable
 Source: "dist\TimeAttendanceSystem.exe"; DestDir: "{app}"; Flags: ignoreversion
-
-; Create necessary folders (no need to include data folder in app directory)
-Source: "dist\logs\*"; DestDir: "{app}\logs"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\exports\*"; DestDir: "{app}\exports"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\backup\*"; DestDir: "{app}\backup"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Create update folder
-Source: "updater\*"; DestDir: "{app}\updater"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db"
-
+; We don't need to include empty directories, they will be created by [Dirs] section
 [Dirs]
 Name: "{app}\logs"; Permissions: users-modify
 Name: "{app}\exports"; Permissions: users-modify
 Name: "{app}\backup"; Permissions: users-modify
 ; Make sure the AppData directory exists for the database
 Name: "{userappdata}\{#AppDataFolder}"; Permissions: users-modify
-
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: startupicon
-
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-
 [Code]
 function InitializeSetup(): Boolean;
-var
-  BackupFileName: String;
-  AppDataDBPath: String;
 begin
-  // Path to the database in AppData
-  AppDataDBPath := ExpandConstant('{userappdata}\{#AppDataFolder}\attendance.db');
-
-  // Check if the database file exists in the AppData directory
-  if FileExists(AppDataDBPath) then
-  begin
-    // Create backup filename with timestamp
-    BackupFileName := ExpandConstant('{app}\backup\attendance.db_' + GetDateTimeString('yyyy-mm-dd_hh-nn-ss', '-', '-'));
-
-    // Create backup directory if it doesn't exist
-    if not ForceDirectories(ExpandConstant('{app}\backup')) then
-      MsgBox('Could not create backup directory!', mbError, MB_OK);
-
-    // Backup the database file
-    if not FileCopy(AppDataDBPath, BackupFileName, false) then
-      MsgBox('Could not backup database file from ' + AppDataDBPath + '!', mbError, MB_OK);
-
-    // Log the backup
-    Log('Database backed up from ' + AppDataDBPath + ' to ' + BackupFileName);
-  end;
-
+  // Simply return True - we'll handle database operations during installation
   Result := True;
 end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   AppDataDBDir: String;
   AppDataDBPath: String;
   BackupDir: String;
+  BackupFileName: String;
   FindRec: TFindRec;
   LatestBackup: String;
-  LatestTime: Integer;
-  CurrentTime: Integer;
+  CurrentTime: String;
 begin
+  // Handle backup during installation (after directory is selected but before files are copied)
+  if CurStep = ssInstall then
+  begin
+    AppDataDBDir := ExpandConstant('{userappdata}\{#AppDataFolder}');
+    AppDataDBPath := AppDataDBDir + '\attendance.db';
+    // Check if the database exists in AppData
+    if FileExists(AppDataDBPath) then
+    begin
+      // Get installation directory and create backup folder
+      BackupDir := ExpandConstant('{app}\backup');
+      // Create backup directory
+      if not ForceDirectories(BackupDir) then
+      begin
+        MsgBox('Could not create backup directory at: ' + BackupDir, mbError, MB_OK);
+      end
+      else
+      begin
+        // Generate a timestamp-like string for the backup filename
+        CurrentTime := GetDateTimeString('yyyymmdd_hhnnss', '_', '_');
+        if CurrentTime = '' then CurrentTime := 'backup'; // Fallback if function fails
+        // Create backup filename
+        BackupFileName := BackupDir + '\attendance.db_' + CurrentTime;
+        // Backup the database file
+        if FileCopy(AppDataDBPath, BackupFileName, false) then
+        begin
+          Log('Database backed up from ' + AppDataDBPath + ' to ' + BackupFileName);
+        end
+        else
+        begin
+          MsgBox('Failed to backup database file from: ' + AppDataDBPath, mbError, MB_OK);
+        end;
+      end;
+    end;
+  end;
+  // Handle restoration during post-installation
   if CurStep = ssPostInstall then
   begin
-    // Paths
+    // Paths for database
     AppDataDBDir := ExpandConstant('{userappdata}\{#AppDataFolder}');
     AppDataDBPath := AppDataDBDir + '\attendance.db';
     BackupDir := ExpandConstant('{app}\backup');
-
     // Create AppData directory if it doesn't exist
     if not ForceDirectories(AppDataDBDir) then
       MsgBox('Could not create AppData directory: ' + AppDataDBDir, mbError, MB_OK);
-
-    // Restore database file from most recent backup if needed
+    // Restore database file from backup if needed
     if DirExists(BackupDir) and not FileExists(AppDataDBPath) then
     begin
       // Initialize latest backup tracking
       LatestBackup := '';
-      LatestTime := 0;
-
-      // Find the most recent backup file
+      // Find any backup file
       if FindFirst(BackupDir + '\attendance.db_*', FindRec) then
       begin
         try
-          repeat
-            // Simple timestamp comparison (this could be improved)
+          // Use the first backup file we find
+          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
+          begin
+            LatestBackup := FindRec.Name;
+          end;
+          // Look through all backup files
+          while FindNext(FindRec) do
+          begin
             if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
             begin
-              CurrentTime := FileAge(BackupDir + '\' + FindRec.Name);
-              if CurrentTime > LatestTime then
-              begin
-                LatestTime := CurrentTime;
-                LatestBackup := FindRec.Name;
-              end;
+              // Just use the last file we find for simplicity
+              LatestBackup := FindRec.Name;
             end;
-          until not FindNext(FindRec);
+          end;
         finally
           FindClose(FindRec);
         end;
       end;
-
       // If we found a backup, restore it
       if LatestBackup <> '' then
       begin
-        if not FileCopy(BackupDir + '\' + LatestBackup, AppDataDBPath, false) then
-          MsgBox('Could not restore database from backup!', mbError, MB_OK)
+        if FileCopy(BackupDir + '\' + LatestBackup, AppDataDBPath, false) then
+          Log('Restored database from ' + LatestBackup + ' to ' + AppDataDBPath)
         else
-          Log('Restored database from ' + LatestBackup + ' to ' + AppDataDBPath);
+          MsgBox('Could not restore database from backup!', mbError, MB_OK);
       end;
     end;
   end;

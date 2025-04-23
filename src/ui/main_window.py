@@ -66,6 +66,7 @@ class MainWindow:
         self.user_importer_status_label = None
         self.test_results_label = None
         self.logo_img = None
+        self.button_container = None  # New reference for button container
 
         # Layout references
         self.main_frame = None
@@ -148,13 +149,22 @@ class MainWindow:
         toolbar_frame = ttk.Frame(self.main_frame, style='TFrame')
         toolbar_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(25, 0))
 
-        # Modern flat buttons with icons
-        ttk.Button(toolbar_frame, text="⚙ Configurer", command=self.open_config,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar_frame, text="👥 Utilisateurs", command=self.open_users,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar_frame, text="📋 Enregistrements", command=self.open_records,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
+        # Create a container frame to better handle button layout
+        self.button_container = ttk.Frame(toolbar_frame, style='TFrame')
+        self.button_container.pack(fill=tk.X, expand=True)
+
+        # Modern flat buttons with icons - with flex layout
+        config_btn = ttk.Button(self.button_container, text="⚙ Configurer", command=self.open_config,
+                                style='Action.TButton')
+        config_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        users_btn = ttk.Button(self.button_container, text="👥 Utilisateurs", command=self.open_users,
+                               style='Action.TButton')
+        users_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        records_btn = ttk.Button(self.button_container, text="📋 Enregistrements", command=self.open_records,
+                                 style='Action.TButton')
+        records_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
         # Set up initial state
         self.update_ui_based_on_config()
@@ -351,6 +361,19 @@ class MainWindow:
                     (self.current_layout == "dual" and event.width <= self.MIN_WIDTH + 100):
                 # Wait a short time and then update layout
                 self.root.after(100, self.create_responsive_layout)
+
+            # Update toolbar button layout based on width
+            if hasattr(self, 'button_container'):
+                if event.width < 400:  # Very small screens
+                    # Stack buttons vertically
+                    for child in self.button_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.TOP, fill=tk.X, expand=True, pady=2, padx=5)
+                else:
+                    # Horizontal button layout
+                    for child in self.button_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
     def create_card(self, parent, title):
         """Create a card with the given title in the parent frame."""

@@ -267,7 +267,7 @@ class MainWindow:
         self.create_system_info(self.left_column)
 
     def create_system_controls(self, parent):
-        """Create the System Controls card."""
+        """Create the System Controls card with responsive button layout."""
         controls_card = self.create_card(parent, "Contrôles du Système")
 
         # Status row in controls card
@@ -284,20 +284,21 @@ class MainWindow:
         # Separator for visual division
         ttk.Separator(controls_card, orient='horizontal').pack(fill=tk.X, pady=10)
 
-        # Buttons row with improved spacing
-        buttons_frame = ttk.Frame(controls_card, style='Card.TFrame')
-        buttons_frame.pack(fill=tk.X, pady=12)
+        # Create a responsive container for the buttons
+        self.system_buttons_container = ttk.Frame(controls_card, style='Card.TFrame')
+        self.system_buttons_container.pack(fill=tk.X, pady=12)
 
-        self.start_button = ttk.Button(buttons_frame, text="► Démarrer le Système",
+        # Create buttons that will fill available space
+        self.start_button = ttk.Button(self.system_buttons_container, text="► Démarrer",
                                        command=self.start_system, style='Action.TButton')
-        self.start_button.pack(side=tk.LEFT, padx=(0, 10))
+        self.start_button.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
-        self.stop_button = ttk.Button(buttons_frame, text="■ Arrêter le Système",
+        self.stop_button = ttk.Button(self.system_buttons_container, text="■ Arrêter",
                                       command=self.stop_system, state=tk.DISABLED, style='Action.TButton')
-        self.stop_button.pack(side=tk.LEFT)
+        self.stop_button.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
     def create_connection_tests(self, parent):
-        """Create Connection Tests card."""
+        """Create Connection Tests card with responsive button."""
         connection_card = self.create_card(parent, "Tests de Connexion")
 
         # Device connection status
@@ -313,13 +314,13 @@ class MainWindow:
         # Separator for visual division
         ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
 
-        # Test button
-        test_button_frame = ttk.Frame(connection_card, style='Card.TFrame')
-        test_button_frame.pack(fill=tk.X, pady=12)
+        # Test button in a container for responsiveness
+        self.test_button_container = ttk.Frame(connection_card, style='Card.TFrame')
+        self.test_button_container.pack(fill=tk.X, pady=12)
 
-        self.test_button = ttk.Button(test_button_frame, text="Relancer les Tests de Connexion",
+        self.test_button = ttk.Button(self.test_button_container, text="Relancer Tests",
                                       command=self.test_connections, style='Action.TButton')
-        self.test_button.pack(pady=5)
+        self.test_button.pack(fill=tk.X, expand=True, pady=5, padx=5)
 
         # Test results
         self.test_results_label = ttk.Label(connection_card, textvariable=self.test_results_var,
@@ -361,6 +362,27 @@ class MainWindow:
                     (self.current_layout == "dual" and event.width <= self.MIN_WIDTH + 100):
                 # Wait a short time and then update layout
                 self.root.after(100, self.create_responsive_layout)
+
+            # Update system control buttons layout based on width
+            if hasattr(self, 'system_buttons_container'):
+                if event.width < 500:  # For small screens
+                    # Stack system buttons vertically
+                    for child in self.system_buttons_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.TOP, fill=tk.X, expand=True, pady=2, padx=5)
+                else:
+                    # Horizontal system button layout
+                    for child in self.system_buttons_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+            # Update test button layout
+            if hasattr(self, 'test_button_container') and hasattr(self, 'test_button'):
+                if event.width < 400:  # Very small screens
+                    # Use a more compact label
+                    self.test_button.config(text="Tests")
+                else:
+                    self.test_button.config(text="Relancer Tests")
 
             # Update toolbar button layout based on width
             if hasattr(self, 'button_container'):

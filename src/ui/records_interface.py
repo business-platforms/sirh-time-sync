@@ -12,6 +12,7 @@ from src.domain.models import AttendanceRecord, User, ProcessedStatus, PunchType
 from src.data.repositories import AttendanceRepository
 from src.service.attendance_service import AttendanceService
 from src.service.sync_service import SyncService
+from src.util.error_translator import get_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -644,7 +645,9 @@ class RecordsInterface:
             if isinstance(error, dict):
                 field = error.get("field", "N/A")
                 code = error.get("code", "N/A")
-                message = error.get("message", "N/A")
+                message = get_error_message(code)
+                if not message:
+                    message = error.get("message", "N/A")
             else:
                 field = "N/A"
                 code = "N/A"

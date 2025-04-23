@@ -488,7 +488,7 @@ class MainWindow:
             # Load global project logo
             global_logo_path = self.resource_path("assets/logo.png")
             global_logo_img = tk.PhotoImage(file=global_logo_path)
-            global_logo_display = global_logo_img.subsample(20, 20)  # Adjust scale as needed
+            global_logo_display = global_logo_img.subsample(22, 22)  # Adjust scale as needed
             self.global_logo_img = global_logo_display  # Store reference
 
             # Load application-specific logo

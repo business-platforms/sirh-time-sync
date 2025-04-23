@@ -1,17 +1,14 @@
 def get_error_message(error_code):
     """
     Returns the French error message for a given error code.
-
     Args:
         error_code (str): The error code to look up
-
     Returns:
         str: The corresponding French error message or a default message if not found
     """
     if error_code == "N/A":
         return error_code
     return pointing_error_translations.get(error_code, "Erreur inconnue *")
-
 # Constants
 MONTH_POINTING_ALREADY_EXISTS = "E311"
 HOURS_AND_DAYS_MUST_BE_NULL = "E312"
@@ -37,7 +34,6 @@ INTERSECTION_OF_PERIODS = "E4"
 UNKNOWN = "E6"
 DATE_PARSE_ERROR = "E2"
 REQUIRED_FIELD = "E0"
-
 # Translation mapping
 pointing_error_translations = {
     HOURS_MUST_BE_NULL: "Les heures doivent être nulles",
@@ -50,7 +46,7 @@ pointing_error_translations = {
     DAYS_ARE_DUPLICATED: "Les jours sont dupliqués",
     MAX_HOURS_IN_DAY_EXCEEDED: "Nombre maximum d'heures par jour dépassé",
     INVALID_POINTING_INTERVAL: "Intervalle de pointage invalide",
-    POINTING_OVERLAP: "Chevauchement de pointage",
+    POINTING_OVERLAP: "Chevauchement des pointages",
     DAYS_MUST_BE_NULL: "Les jours doivent être nuls",
     HOURS_MUST_NOT_BE_NULL: "Les heures ne doivent pas être nulles",
     DAYS_MUST_NOT_BE_NULL: "Les jours ne doivent pas être nuls",
@@ -59,6 +55,7 @@ pointing_error_translations = {
     MONTH_POINTING_WAS_UPDATED: "Le pointage mensuel a été mis à jour",
     INTERSECTION_OF_PERIODS: "Chevauchement de pointage",
     DATE_PARSE_ERROR: "Erreur d'analyse de date",
+    NO_CORRESPONDING_ENTRANCE: "Aucune entrée pour cette sortie"
     REQUIRED_FIELD: "REQUIRED FIELD",
     UNKNOWN: "Erreur inconnue"
 }

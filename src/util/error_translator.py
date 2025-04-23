@@ -55,7 +55,7 @@ pointing_error_translations = {
     MONTH_POINTING_WAS_UPDATED: "Le pointage mensuel a été mis à jour",
     INTERSECTION_OF_PERIODS: "Chevauchement de pointage",
     DATE_PARSE_ERROR: "Erreur d'analyse de date",
-    NO_CORRESPONDING_ENTRANCE: "Aucune entrée pour cette sortie"
+    NO_CORRESPONDING_ENTRANCE: "Aucune entrée pour cette sortie",
     REQUIRED_FIELD: "REQUIRED FIELD",
     UNKNOWN: "Erreur inconnue"
 }

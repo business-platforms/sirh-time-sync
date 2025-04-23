@@ -22,8 +22,8 @@ OutputBaseFilename=TimeAttendanceSystem-Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 PrivilegesRequired=admin
-;SetupIconFile=assets\timesync-logo.ico  ; Commented out due to icon issues
-;UninstallDisplayIcon={app}\{#AppExeName}  ; Commented out due to icon issues
+SetupIconFile=assets\timesync-logo.ico
+UninstallDisplayIcon={app}\{#AppExeName}
 WizardStyle=modern
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
@@ -36,7 +36,7 @@ Name: "startupicon"; Description: "Start the application when Windows starts"; G
 [Files]
 ; Main executable
 Source: "dist\TimeAttendanceSystem.exe"; DestDir: "{app}"; Flags: ignoreversion
-; We don't need to include empty directories, they will be created by [Dirs] section
+Source: "assets\timesync-logo.ico"; DestDir: "{app}"; Flags: ignoreversion
 [Dirs]
 Name: "{app}\logs"; Permissions: users-modify
 Name: "{app}\exports"; Permissions: users-modify
@@ -44,10 +44,10 @@ Name: "{app}\backup"; Permissions: users-modify
 ; Make sure the AppData directory exists for the database
 Name: "{userappdata}\{#AppDataFolder}"; Permissions: users-modify
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\timesync-logo.ico"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
-Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: startupicon
+Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\timesync-logo.ico"; Tasks: desktopicon
+Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\timesync-logo.ico"; Tasks: startupicon
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 [Code]

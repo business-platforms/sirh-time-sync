@@ -126,21 +126,25 @@ class MainWindow:
 
         # Title with logos
         title_frame = ttk.Frame(self.main_frame, style='TFrame')
-        title_frame.pack(fill=tk.X, pady=(5, 20))
+        title_frame.pack(fill=tk.X, pady=(5, 15))  # Reduce vertical padding from (5, 20) to (5, 15)
 
-        # Global project logo on the left
+        # Add width constraint to the title_frame
+        title_frame.pack_propagate(False)  # Prevent propagation of size from children
+        title_frame.configure(height=50)  # Set a fixed height for the title area
+
+        # Global project logo on the left - make smaller
         if hasattr(self, 'global_logo_img'):
             global_logo_label = ttk.Label(title_frame, image=self.global_logo_img, background=self.COLOR_BACKGROUND)
-            global_logo_label.pack(side=tk.LEFT, padx=(0, 10))
+            global_logo_label.pack(side=tk.LEFT, padx=(0, 5))  # Reduce padding from (0, 10) to (0, 5)
 
-        # Title text in the middle
+        # Title text in the middle - use smaller font or reduce padding
         title_text = ttk.Label(title_frame, text="Système de Présence", style='Title.TLabel')
-        title_text.pack(side=tk.LEFT, padx=15)
+        title_text.pack(side=tk.LEFT, padx=10)  # Reduce padding from 15 to 10
 
-        # Application logo on the right
+        # Application logo on the right - make smaller
         if hasattr(self, 'app_logo_img'):
             app_logo_label = ttk.Label(title_frame, image=self.app_logo_img, background=self.COLOR_BACKGROUND)
-            app_logo_label.pack(side=tk.RIGHT, padx=(10, 0))
+            app_logo_label.pack(side=tk.RIGHT, padx=(5, 0))  # Reduce padding from (10, 0) to (5, 0)
 
         # Create the layout based on initial window size
         self.create_responsive_layout()
@@ -540,13 +544,13 @@ class MainWindow:
             # Load global project logo
             global_logo_path = self.resource_path("assets/timesync-logo.png")
             global_logo_img = tk.PhotoImage(file=global_logo_path)
-            global_logo_display = global_logo_img.subsample(7, 7)  # Adjust scale as needed
+            global_logo_display = global_logo_img.subsample(8, 8)  # Adjust scale as needed
             self.global_logo_img = global_logo_display  # Store reference
 
             # Load application-specific logo
             app_logo_path = self.resource_path("assets/logo.png")
             app_logo_img = tk.PhotoImage(file=app_logo_path)
-            app_logo_display = app_logo_img.subsample(25, 25)  # Adjust scale as needed
+            app_logo_display = app_logo_img.subsample(28, 28)  # Adjust scale as needed
             self.app_logo_img = app_logo_display  # Store reference
 
             # Use application logo for window icon

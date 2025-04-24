@@ -538,15 +538,15 @@ class MainWindow:
         """Load both the global project logo and application-specific logo."""
         try:
             # Load global project logo
-            global_logo_path = self.resource_path("assets/logo.png")
+            global_logo_path = self.resource_path("assets/timesync-logo.png")
             global_logo_img = tk.PhotoImage(file=global_logo_path)
-            global_logo_display = global_logo_img.subsample(22, 22)  # Adjust scale as needed
+            global_logo_display = global_logo_img.subsample(7, 7)  # Adjust scale as needed
             self.global_logo_img = global_logo_display  # Store reference
 
             # Load application-specific logo
-            app_logo_path = self.resource_path("assets/timesync-logo.png")
+            app_logo_path = self.resource_path("assets/logo.png")
             app_logo_img = tk.PhotoImage(file=app_logo_path)
-            app_logo_display = app_logo_img.subsample(7, 7)  # Adjust scale as needed
+            app_logo_display = app_logo_img.subsample(25, 25)  # Adjust scale as needed
             self.app_logo_img = app_logo_display  # Store reference
 
             # Use application logo for window icon

@@ -325,7 +325,7 @@ class MainWindow:
         self.api_status_label.pack(side=tk.LEFT, anchor=tk.W)
 
         # Separator for visual division
-        ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
+        # ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
 
         # Test button in a container for responsiveness
         self.test_button_container = ttk.Frame(connection_card, style='Card.TFrame')
@@ -333,7 +333,7 @@ class MainWindow:
 
         self.test_button = ttk.Button(self.test_button_container, text="Relancer Tests",
                                       command=self.test_connections, style='ModernButton.TButton')
-        self.test_button.pack(fill=tk.X, expand=True, pady=4, padx=4)
+        self.test_button.pack(fill=tk.X, expand=True, pady=5, padx=5)
 
         # Test results
         self.test_results_label = ttk.Label(connection_card, textvariable=self.test_results_var,

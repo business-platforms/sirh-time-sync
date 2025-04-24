@@ -566,7 +566,7 @@ class MainWindow:
             # Load application-specific logo
             app_logo_path = self.resource_path("assets/logo.png")
             app_logo_img = tk.PhotoImage(file=app_logo_path)
-            app_logo_display = app_logo_img.subsample(30, 30)  # Adjust scale as needed
+            app_logo_display = app_logo_img.subsample(32, 32)  # Adjust scale as needed
             self.app_logo_img = app_logo_display  # Store reference
 
             # Use application logo for window icon

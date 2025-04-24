@@ -297,7 +297,7 @@ class MainWindow:
         self.device_status_label.pack(side=tk.LEFT, anchor=tk.W)
 
         # Add a spacer between indicators
-        ttk.Label(status_frame, text="  |  ", style='Card.TLabel').pack(side=tk.LEFT)
+        ttk.Label(status_frame, text="  -  ", style='Card.TLabel').pack(side=tk.LEFT)
 
         # API connection status (right side)
         self.api_status_label = ttk.Label(status_frame, textvariable=self.api_test_var,
@@ -433,7 +433,7 @@ class MainWindow:
         # Add status indicator if requested
         if with_status:
             # Add spacer
-            ttk.Label(title_row, text="  |  ", style='Card.TLabel').pack(side=tk.LEFT)
+            ttk.Label(title_row, text="  -  ", style='Card.TLabel').pack(side=tk.LEFT)
 
             # Status indicator
             self.status_label = ttk.Label(title_row, textvariable=self.status_var,

@@ -211,6 +211,22 @@ class MainWindow:
         style.configure('Stop.TButton', background=self.COLOR_ERROR)
         style.configure('Action.TButton', padding=10)
 
+        # Modern button styles with reduced padding and cleaner look
+        style.configure('TButton', font=('Segoe UI', 9), padding=5)
+        style.configure('ModernButton.TButton',
+                        padding=(5, 3),
+                        font=('Segoe UI', 9))
+
+        # Define hover and pressed states for modern look
+        style.map('ModernButton.TButton',
+                  background=[('active', '#e0e6ed'), ('pressed', '#d0d6dd')],
+                  relief=[('pressed', 'flat'), ('!pressed', 'flat')])
+
+        # Small action buttons
+        style.configure('SmallAction.TButton',
+                        padding=(4, 2),
+                        font=('Segoe UI', 8))
+
         # Card styles
         style.configure('Card.TLabelframe', background=self.COLOR_CARD, borderwidth=0)
         style.configure('Card.TLabelframe.Label', background=self.COLOR_CARD)
@@ -316,8 +332,8 @@ class MainWindow:
         self.test_button_container.pack(fill=tk.X, pady=12)
 
         self.test_button = ttk.Button(self.test_button_container, text="Relancer Tests",
-                                      command=self.test_connections, style='Action.TButton')
-        self.test_button.pack(fill=tk.X, expand=True, pady=5, padx=5)
+                                      command=self.test_connections, style='ModernButton.TButton')
+        self.test_button.pack(fill=tk.X, expand=True, pady=4, padx=4)
 
         # Test results
         self.test_results_label = ttk.Label(connection_card, textvariable=self.test_results_var,

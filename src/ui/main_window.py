@@ -268,21 +268,7 @@ class MainWindow:
 
     def create_system_controls(self, parent):
         """Create the System Controls card with responsive button layout."""
-        controls_card = self.create_card(parent, "Contrôles du Système")
-
-        # Status row in controls card
-        status_frame = ttk.Frame(controls_card, style='Card.TFrame')
-        status_frame.pack(fill=tk.X, pady=10)
-
-        status_label = ttk.Label(status_frame, text="Statut:", style='Card.TLabel')
-        status_label.pack(side=tk.LEFT)
-
-        self.status_label = ttk.Label(status_frame, textvariable=self.status_var,
-                                      style='Success.TLabel' if self.app.is_running() else 'Error.TLabel')
-        self.status_label.pack(side=tk.LEFT, padx=10)
-
-        # Separator for visual division
-        ttk.Separator(controls_card, orient='horizontal').pack(fill=tk.X, pady=10)
+        controls_card = self.create_card(parent, "Contrôles du Système", with_status=True)
 
         # Create a responsive container for the buttons
         self.system_buttons_container = ttk.Frame(controls_card, style='Card.TFrame')
@@ -301,15 +287,22 @@ class MainWindow:
         """Create Connection Tests card with responsive button."""
         connection_card = self.create_card(parent, "Tests de Connexion")
 
-        # Device connection status
-        self.device_status_label = ttk.Label(connection_card, textvariable=self.device_test_var,
-                                             style='Neutral.TLabel')
-        self.device_status_label.pack(anchor=tk.W, pady=8)
+        # Create a frame to hold both status indicators in one row
+        status_frame = ttk.Frame(connection_card, style='Card.TFrame')
+        status_frame.pack(fill=tk.X, pady=8)
 
-        # API connection status
-        self.api_status_label = ttk.Label(connection_card, textvariable=self.api_test_var,
+        # Device connection status (left side)
+        self.device_status_label = ttk.Label(status_frame, textvariable=self.device_test_var,
+                                             style='Neutral.TLabel')
+        self.device_status_label.pack(side=tk.LEFT, anchor=tk.W)
+
+        # Add a spacer between indicators
+        ttk.Label(status_frame, text="  |  ", style='Card.TLabel').pack(side=tk.LEFT)
+
+        # API connection status (right side)
+        self.api_status_label = ttk.Label(status_frame, textvariable=self.api_test_var,
                                           style='Neutral.TLabel')
-        self.api_status_label.pack(anchor=tk.W, pady=8)
+        self.api_status_label.pack(side=tk.LEFT, anchor=tk.W)
 
         # Separator for visual division
         ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
@@ -397,7 +390,7 @@ class MainWindow:
                         child.pack_forget()
                         child.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-    def create_card(self, parent, title):
+    def create_card(self, parent, title, with_status=False):
         """Create a card with the given title in the parent frame."""
         # Create an outer frame that will have the background color
         outer_frame = ttk.Frame(parent, style='Card.TFrame')
@@ -430,8 +423,22 @@ class MainWindow:
         title_frame = ttk.Frame(content_frame, style='Card.TFrame')
         title_frame.pack(fill=tk.X, pady=(15, 10), padx=15)
 
-        title_label = ttk.Label(title_frame, text=title, style='SectionTitle.TLabel')
-        title_label.pack(anchor=tk.W)
+        # Create a row for the title and status (if needed)
+        title_row = ttk.Frame(title_frame, style='Card.TFrame')
+        title_row.pack(fill=tk.X)
+
+        title_label = ttk.Label(title_row, text=title, style='SectionTitle.TLabel')
+        title_label.pack(side=tk.LEFT, anchor=tk.W)
+
+        # Add status indicator if requested
+        if with_status:
+            # Add spacer
+            ttk.Label(title_row, text="  |  ", style='Card.TLabel').pack(side=tk.LEFT)
+
+            # Status indicator
+            self.status_label = ttk.Label(title_row, textvariable=self.status_var,
+                                          style='Success.TLabel' if self.app.is_running() else 'Error.TLabel')
+            self.status_label.pack(side=tk.LEFT)
 
         # Divider below title
         ttk.Separator(content_frame, orient='horizontal').pack(fill=tk.X, padx=15)

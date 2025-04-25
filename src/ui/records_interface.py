@@ -180,7 +180,7 @@ class RecordsInterface:
 
         # Toggle button
         self.filter_panel_visible = tk.BooleanVar(value=False)
-        self.toggle_text = tk.StringVar(value="▼ Masquer les filtres")
+        self.toggle_text = tk.StringVar(value="▼ Afficher les filtres")
         self.toggle_btn = ttk.Button(toggle_frame, textvariable=self.toggle_text,
                                      command=self.toggle_filter_panel)
         self.toggle_btn.pack(side=tk.RIGHT)

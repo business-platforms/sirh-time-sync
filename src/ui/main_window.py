@@ -28,8 +28,8 @@ class MainWindow:
     COLOR_BORDER = "#E0E6ED"  # Soft blue-gray for borders
 
     # Minimum dimensions
-    MIN_WIDTH = 640
-    MIN_HEIGHT = 680
+    MIN_WIDTH = 500  
+    MIN_HEIGHT = 500
 
     # Default dimensions for medium-sized screens
     DEFAULT_WIDTH = 820
@@ -84,6 +84,25 @@ class MainWindow:
         """Set up the modern user interface with responsive layout."""
         # Configure window basics
         self.root.title("Panneau de Contrôle du Système de Présence")
+
+        # Open in fullscreen by default
+        try:
+            # First try the 'zoomed' state for Windows
+            self.root.state('zoomed')
+        except:
+            try:
+                # Try the '-zoomed' attribute for some Linux distros
+                self.root.attributes('-zoomed', True)
+            except:
+                # Fallback to checking the operating system
+                if sys.platform.startswith('linux'):
+                    # For most Linux window managers
+                    self.root.attributes('-zoomed', True)
+                elif sys.platform == 'darwin':  # macOS
+                    # No direct fullscreen command, set to screen size instead
+                    width = self.root.winfo_screenwidth()
+                    height = self.root.winfo_screenheight()
+                    self.root.geometry(f"{width}x{height}+0+0")
 
         # Set initial size based on screen dimensions
         screen_width = self.root.winfo_screenwidth()

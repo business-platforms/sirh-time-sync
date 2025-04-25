@@ -55,7 +55,7 @@ class RecordsInterface:
 
         # Configure window basics
         self.root.title("Enregistrements de Présence")
-        self.root.geometry("1300x750")
+        self.root.geometry("1600x800")
         self.root.minsize(1000, 700)
         self.root.withdraw()  # Hide window during setup
 
@@ -249,6 +249,8 @@ class RecordsInterface:
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(crud_frame, text="🗑️ Supprimer l'Enregistrement", command=self.delete_record,
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(crud_frame, text="🗑️🗑️ Supprimer Sélection", command=self.delete_selected_records,
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(crud_frame, text="⚠️ Voir les Erreurs", command=self.view_errors,
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
 
@@ -331,7 +333,7 @@ class RecordsInterface:
 
         # Create the Treeview
         columns = ("id", "username", "timestamp", "punch_type", "processed")
-        self.tree = ttk.Treeview(tree_container, columns=columns, show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(tree_container, columns=columns, show="headings", selectmode="extended")
 
         # Define headings
         self.tree.heading("id", text="ID", command=lambda: self.sort_treeview("id"))
@@ -400,10 +402,11 @@ class RecordsInterface:
         self.apply_filter()
 
     def create_context_menu(self):
-        """Create a right-click context menu for the treeview."""
         self.context_menu = tk.Menu(self.tree, tearoff=0)
         self.context_menu.add_command(label="Modifier l'Enregistrement", command=self.update_record)
         self.context_menu.add_command(label="Supprimer l'Enregistrement", command=self.delete_record)
+        self.context_menu.add_command(label="Supprimer les Enregistrements Sélectionnés",
+                                      command=self.delete_selected_records)
         self.context_menu.add_command(label="Voir les Erreurs", command=self.view_errors)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Marquer comme Traité",
@@ -412,6 +415,10 @@ class RecordsInterface:
                                       command=lambda: self.toggle_processed_status(ProcessedStatus.UNPROCESSED))
         self.context_menu.add_command(label="Marquer comme Erreur",
                                       command=lambda: self.toggle_processed_status(ProcessedStatus.ERROR))
+
+        self.tree.bind("<Button-3>", self.show_context_menu)
+        # Double-click to view errors if record has error status
+        self.tree.bind("<Double-1>", self.on_double_click)
 
         self.tree.bind("<Button-3>", self.show_context_menu)
         # Double-click to view errors if record has error status
@@ -964,6 +971,40 @@ class RecordsInterface:
                    style='TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Enregistrer les Modifications", command=submit,
                    style='Action.TButton').pack(side=tk.RIGHT, padx=5)
+
+    def delete_selected_records(self):
+        """Delete multiple selected attendance records."""
+        if not self.attendance_repository:
+            self.show_error("Référentiel d'enregistrements non disponible")
+            return
+
+        selected_items = self.tree.selection()
+        if not selected_items:
+            self.show_error("Veuillez sélectionner au moins un enregistrement à supprimer.")
+            return
+
+        # Confirm deletion
+        count = len(selected_items)
+        if not messagebox.askyesno("Confirmer la Suppression Multiple",
+                                   f"Êtes-vous sûr de vouloir supprimer les {count} enregistrements sélectionnés?",
+                                   parent=self.root):
+            return
+
+        # Extract record IDs from selected items
+        record_ids = []
+        for item in selected_items:
+            record_values = self.tree.item(item, "values")
+            record_id = int(record_values[0])
+            record_ids.append(record_id)
+
+        try:
+            # Delete the records
+            self.attendance_repository.delete_records(record_ids)
+            self.show_success(f"{count} enregistrements supprimés avec succès.")
+            self.load_records()
+            self.display_records()
+        except Exception as e:
+            self.handle_error("Erreur lors de la suppression des enregistrements", e)
 
     def delete_record(self):
         """Delete the selected attendance record."""

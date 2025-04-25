@@ -247,9 +247,18 @@ class RecordsInterface:
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(crud_frame, text="✏️ Modifier l'Enregistrement", command=self.update_record,
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Button(crud_frame, text="🗑️ Supprimer l'Enregistrement", command=self.delete_record,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(crud_frame, text="🗑️🗑️ Supprimer Sélection", command=self.delete_selected_records,
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Status change buttons
+        status_frame = ttk.Frame(action_frame, style='TFrame')
+        status_frame.pack(side=tk.LEFT, fill=tk.X)
+
+        ttk.Button(status_frame, text="✅ Marquer comme Traité",
+                   command=lambda: self.mark_selected_records(ProcessedStatus.PROCESSED),
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(status_frame, text="⏳ Marquer comme Non Traité",
+                   command=lambda: self.mark_selected_records(ProcessedStatus.UNPROCESSED),
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(crud_frame, text="⚠️ Voir les Erreurs", command=self.view_errors,
                    style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
@@ -402,26 +411,28 @@ class RecordsInterface:
         self.apply_filter()
 
     def create_context_menu(self):
+        """Create a right-click context menu for the treeview."""
         self.context_menu = tk.Menu(self.tree, tearoff=0)
+
+        # Single record options
         self.context_menu.add_command(label="Modifier l'Enregistrement", command=self.update_record)
-        self.context_menu.add_command(label="Supprimer l'Enregistrement", command=self.delete_record)
-        self.context_menu.add_command(label="Supprimer les Enregistrements Sélectionnés",
-                                      command=self.delete_selected_records)
         self.context_menu.add_command(label="Voir les Erreurs", command=self.view_errors)
         self.context_menu.add_separator()
-        self.context_menu.add_command(label="Marquer comme Traité",
-                                      command=lambda: self.toggle_processed_status(ProcessedStatus.PROCESSED))
-        self.context_menu.add_command(label="Marquer comme Non Traité",
-                                      command=lambda: self.toggle_processed_status(ProcessedStatus.UNPROCESSED))
-        self.context_menu.add_command(label="Marquer comme Erreur",
-                                      command=lambda: self.toggle_processed_status(ProcessedStatus.ERROR))
+
+        # Multiple records options
+        self.context_menu.add_command(label="Supprimer les Enregistrements Sélectionnés",
+                                      command=self.delete_selected_records)
+        self.context_menu.add_separator()
+
+        # Status change submenu
+        status_menu = tk.Menu(self.context_menu, tearoff=0)
+        status_menu.add_command(label="Marquer comme Traité",
+                                command=lambda: self.mark_selected_records(ProcessedStatus.PROCESSED))
+        status_menu.add_command(label="Marquer comme Non Traité",
+                                command=lambda: self.mark_selected_records(ProcessedStatus.UNPROCESSED))
+        self.context_menu.add_cascade(label="Changer le Statut", menu=status_menu)
 
         self.tree.bind("<Button-3>", self.show_context_menu)
-        # Double-click to view errors if record has error status
-        self.tree.bind("<Double-1>", self.on_double_click)
-
-        self.tree.bind("<Button-3>", self.show_context_menu)
-        # Double-click to view errors if record has error status
         self.tree.bind("<Double-1>", self.on_double_click)
 
     def show_context_menu(self, event):
@@ -1006,34 +1017,52 @@ class RecordsInterface:
         except Exception as e:
             self.handle_error("Erreur lors de la suppression des enregistrements", e)
 
-    def delete_record(self):
-        """Delete the selected attendance record."""
+    def mark_selected_records(self, status):
+        """Mark multiple selected records with the specified status."""
         if not self.attendance_repository:
             self.show_error("Référentiel d'enregistrements non disponible")
             return
 
-        selected_item = self.tree.selection()
-        if not selected_item:
-            self.show_error("Veuillez sélectionner un enregistrement à supprimer.")
+        selected_items = self.tree.selection()
+        if not selected_items:
+            self.show_error("Veuillez sélectionner au moins un enregistrement à modifier.")
             return
 
-        # Confirm deletion
-        if not messagebox.askyesno("Confirmer la Suppression",
-                                   "Êtes-vous sûr de vouloir supprimer l'enregistrement sélectionné?",
+        # Get status display name for messages
+        status_map = {
+            ProcessedStatus.PROCESSED: "Traité",
+            ProcessedStatus.UNPROCESSED: "Non Traité",
+            ProcessedStatus.ERROR: "Erreur"
+        }
+        status_display = status_map.get(status, status)
+
+        # Confirm action
+        count = len(selected_items)
+        if not messagebox.askyesno("Confirmer le Changement de Statut",
+                                   f"Êtes-vous sûr de vouloir marquer {count} enregistrements comme '{status_display}'?",
                                    parent=self.root):
             return
 
-        record_values = self.tree.item(selected_item, "values")
-        record_id = int(record_values[0])
+        # If marking as ERROR, we need to handle error details
+        if status == ProcessedStatus.ERROR:
+            self.show_error("Pour marquer comme erreur, veuillez modifier les enregistrements individuellement.")
+            return
+
+        # Extract record IDs from selected items
+        record_ids = []
+        for item in selected_items:
+            record_values = self.tree.item(item, "values")
+            record_id = int(record_values[0])
+            record_ids.append(record_id)
 
         try:
-            # Delete the record
-            self.attendance_repository.delete_record(record_id)
-            self.show_success("Enregistrement supprimé avec succès.")
+            # Update the records status
+            self.attendance_repository.mark_records_by_ids(record_ids, status)
+            self.show_success(f"{count} enregistrements marqués comme '{status_display}' avec succès.")
             self.load_records()
             self.display_records()
         except Exception as e:
-            self.handle_error("Erreur lors de la suppression de l'enregistrement", e)
+            self.handle_error(f"Erreur lors de la modification du statut des enregistrements", e)
 
     def synchronize_records(self):
         """Synchronize attendance records with the API."""

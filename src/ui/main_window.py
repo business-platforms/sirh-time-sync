@@ -1,3 +1,4 @@
+# src/ui/main_window.py
 import os
 import sys
 import logging
@@ -5,6 +6,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Optional, Dict, Any
+import threading
+import tempfile
+import pystray
+from PIL import Image, ImageDraw
 
 from src.ui.config_interface import ConfigInterface
 from src.ui.records_interface import RecordsInterface
@@ -28,7 +33,7 @@ class MainWindow:
     COLOR_BORDER = "#E0E6ED"  # Soft blue-gray for borders
 
     # Minimum dimensions
-    MIN_WIDTH = 500  
+    MIN_WIDTH = 500
     MIN_HEIGHT = 500
 
     # Default dimensions for medium-sized screens
@@ -37,6 +42,9 @@ class MainWindow:
 
     def __init__(self, application: Application):
         self.app = application
+        self.icon = None  # System tray icon
+        self.tray_thread = None  # Thread for tray icon
+        self.exit_requested = False  # Flag to track exit requests
 
         # Create main window
         self.root = tk.Tk()
@@ -79,6 +87,162 @@ class MainWindow:
         self.connectivity_success = False
 
         logger.info("Main window initializing")
+
+        # Setup system tray icon
+        self.setup_system_tray()
+
+    def setup_system_tray(self):
+        """Setup the system tray icon and menu."""
+        try:
+            # Get icon path
+            icon_path = self.resource_path("assets/timesync-logo.ico")
+            if not os.path.exists(icon_path):
+                # Fallback to PNG if ICO not available
+                icon_path = self.resource_path("assets/timesync-logo.png")
+                if not os.path.exists(icon_path):
+                    # Create a blank image if icon files aren't available
+                    icon_path = self.create_default_icon()
+
+            # Load the icon image
+            icon_image = Image.open(icon_path)
+
+            # Define menu items
+            menu = (
+                pystray.MenuItem('Show', self.show_window),
+                pystray.MenuItem('Start Service', self.start_background_service),
+                pystray.MenuItem('Stop Service', self.stop_background_service),
+                pystray.MenuItem('Exit', self.exit_app)
+            )
+
+            # Create the icon
+            self.icon = pystray.Icon("timesync", icon_image, "Time Attendance System", menu)
+
+            # Start the icon in a separate thread
+            self.tray_thread = threading.Thread(target=self.icon.run, daemon=True)
+            self.tray_thread.start()
+
+            logger.info("System tray icon initialized")
+        except Exception as e:
+            logger.error(f"Failed to setup system tray icon: {e}")
+            # Continue without the system tray if it fails
+
+    def create_default_icon(self):
+        """Create a default icon if none is available."""
+        try:
+            img = Image.new('RGB', (64, 64), color=(36, 57, 142))  # Using COLOR_PRIMARY
+            d = ImageDraw.Draw(img)
+            d.text((20, 20), "TS", fill=(255, 255, 255))
+            temp_path = os.path.join(tempfile.gettempdir(), 'temp_icon.png')
+            img.save(temp_path)
+            return temp_path
+        except Exception as e:
+            logger.error(f"Failed to create default icon: {e}")
+            return None
+
+    def show_window(self, icon=None, item=None):
+        """Show the main window."""
+        self.root.after(0, self.root.deiconify)
+        self.root.after(0, self.root.focus_force)
+        # Update UI status
+        self.update_ui_status()
+
+    def hide_window(self):
+        """Hide the main window but keep the app running."""
+        self.root.withdraw()
+        # Show notification if icon exists
+        if self.icon:
+            self.send_notification("Time Attendance System is still running in the background.")
+
+    def start_background_service(self, icon=None, item=None):
+        """Start the service from the system tray."""
+        if not self.app.is_running():
+            self.app.start_service()
+            # Update icon notification
+            if self.icon:
+                self.send_notification("Service started successfully")
+            # Update UI status if window is visible
+            if self.root.state() != 'withdrawn':
+                self.update_ui_status()
+
+    def stop_background_service(self, icon=None, item=None):
+        """Stop the service from the system tray."""
+        if self.app.is_running():
+            self.app.stop_service()
+            # Update icon notification
+            if self.icon:
+                self.send_notification("Service stopped")
+            # Update UI status if window is visible
+            if self.root.state() != 'withdrawn':
+                self.update_ui_status()
+
+    def exit_app(self, icon=None, item=None):
+        """Properly exit the application from the system tray."""
+        self.exit_requested = True
+
+        # Stop services
+        if self.app.is_running():
+            self.app.stop_service()
+
+        # Stop the icon if it exists
+        if self.icon:
+            self.icon.stop()
+
+        # Destroy Tkinter root if it exists
+        if self.root:
+            self.root.destroy()
+
+        # Force exit if needed
+        import os
+        os._exit(0)
+
+    def update_ui_status(self):
+        """Update UI status based on service state."""
+        if self.app.is_running():
+            # Update main status
+            self.status_var.set("Système en marche")
+            if self.status_label:
+                self.status_label.config(style='Success.TLabel')
+
+            # Update component statuses
+            self.update_status(self.collector_status_var, "Collecteur", "En marche", "success")
+            if self.collector_status_label:
+                self.collector_status_label.config(style='Success.TLabel')
+
+            self.update_status(self.uploader_status_var, "Téléchargeur", "En marche", "success")
+            if self.uploader_status_label:
+                self.uploader_status_label.config(style='Success.TLabel')
+
+            self.update_status(self.user_importer_status_var, "Importateur d'Utilisateurs", "En marche", "success")
+            if self.user_importer_status_label:
+                self.user_importer_status_label.config(style='Success.TLabel')
+
+            # Update button states
+            if self.start_button and self.stop_button:
+                self.start_button.config(state=tk.DISABLED)
+                self.stop_button.config(state=tk.NORMAL)
+        else:
+            # Update main status
+            self.status_var.set("Système arrêté")
+            if self.status_label:
+                self.status_label.config(style='Error.TLabel')
+
+            # Update component statuses
+            self.update_status(self.collector_status_var, "Collecteur", "Arrêté", "error")
+            if self.collector_status_label:
+                self.collector_status_label.config(style='Error.TLabel')
+
+            self.update_status(self.uploader_status_var, "Téléchargeur", "Arrêté", "error")
+            if self.uploader_status_label:
+                self.uploader_status_label.config(style='Error.TLabel')
+
+            self.update_status(self.user_importer_status_var, "Importateur d'Utilisateurs", "Arrêté", "error")
+            if self.user_importer_status_label:
+                self.user_importer_status_label.config(style='Error.TLabel')
+
+            # Update button states
+            if self.start_button and self.stop_button:
+                self.start_button.config(state=tk.NORMAL)
+                self.stop_button.config(state=tk.DISABLED)
 
     def setup_ui(self):
         """Set up the modern user interface with responsive layout."""
@@ -189,10 +353,15 @@ class MainWindow:
                                  style='Action.TButton')
         records_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
+        # Add minimize to tray button
+        minimize_btn = ttk.Button(self.button_container, text="🔽 Réduire dans la barre", command=self.hide_window,
+                                  style='Action.TButton')
+        minimize_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
         # Set up initial state
         self.update_ui_based_on_config()
 
-        # Set up close handler
+        # Set up close handler - MODIFIED to hide window instead of exiting
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # Bind resize event
@@ -384,6 +553,11 @@ class MainWindow:
         ttk.Label(info_card, textvariable=self.last_collection_var, style='Card.TLabel').pack(anchor=tk.W, pady=5)
         ttk.Label(info_card, textvariable=self.last_upload_var, style='Card.TLabel').pack(anchor=tk.W, pady=5)
         ttk.Label(info_card, textvariable=self.last_import_var, style='Card.TLabel').pack(anchor=tk.W, pady=5)
+
+        # Add system tray status
+        tray_status = "Actif" if self.icon else "Non disponible"
+        tray_label = ttk.Label(info_card, text=f"Icône système: {tray_status}", style='Card.TLabel')
+        tray_label.pack(anchor=tk.W, pady=5)
 
     def on_window_resize(self, event):
         """Handle window resize events."""
@@ -693,6 +867,11 @@ class MainWindow:
             self.last_collection_var.set("Dernière collecte: Programmée")
             self.last_upload_var.set("Dernier téléchargement: Programmé")
             self.last_import_var.set("Dernière importation d'utilisateur: Programmée")
+
+            # Update system tray tooltip if available
+            if self.icon:
+                self.icon.update_menu()
+                self.send_notification("Le service a été démarré")
         else:
             messagebox.showerror("Erreur Système",
                                  "Impossible de démarrer le système. Consultez les journaux pour plus de détails.")
@@ -718,6 +897,11 @@ class MainWindow:
         # Update button states
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
+
+        # Update system tray tooltip if available
+        if self.icon:
+            self.icon.update_menu()
+            self.send_notification("Le service a été arrêté")
 
     def open_config(self):
         """Open the configuration window."""
@@ -758,13 +942,48 @@ class MainWindow:
         )
         records_window.show()
 
+    # Add this helper method to the MainWindow class:
+    def send_notification(self, message):
+        """Safely send a notification if supported."""
+        if self.icon:
+            try:
+                self.icon.notify(message)
+            except (NotImplementedError, Exception) as e:
+                # Notifications not supported on this platform
+                logger.warning(f"System tray notifications not supported: {e}")
+
     def on_close(self):
-        """Handle window closing."""
-        if messagebox.askokcancel("Quitter", "Voulez-vous quitter? Cela arrêtera la collecte de présence."):
-            self.app.stop_service()
+        """Handle window closing - hide window instead of exiting."""
+        if not self.exit_requested:  # Regular window close, not exit request
+            # Ask if user wants to minimize to tray
+            if messagebox.askyesno("Minimiser",
+                                   "Voulez-vous minimiser l'application? Le service continuera de fonctionner en arrière-plan.",
+                                   parent=self.root):
+                self.hide_window()
+                return  # Don't proceed with closing
+            else:
+                # Ask if user wants to exit completely
+                if messagebox.askyesno("Quitter",
+                                       "Voulez-vous quitter? Cela arrêtera la collecte de présence.",
+                                       parent=self.root):
+                    # User confirmed complete exit
+                    self.exit_app()
+                else:
+                    # User canceled both options, do nothing
+                    return
+        else:
+            # Direct exit was requested (e.g., from system tray)
             self.root.destroy()
 
     def start(self):
         """Start the main window."""
         self.setup_ui()
         self.root.mainloop()
+
+        # After mainloop exits, check if we need to clean up
+        if self.icon and not self.exit_requested:
+            try:
+                # Try to stop the icon if it's still running
+                self.icon.stop()
+            except:
+                pass

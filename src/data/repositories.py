@@ -60,6 +60,11 @@ class AttendanceRepository(ABC):
         pass
 
     @abstractmethod
+    def mark_records_by_ids(self, ids: List[int], status: str = ProcessedStatus.PROCESSED) -> None:
+        """Mark records as processed by ids."""
+        pass
+
+    @abstractmethod
     def mark_record_error(self, record_id: int, errors: List[Dict[str, str]]) -> None:
         """Mark a record as having errors."""
         pass

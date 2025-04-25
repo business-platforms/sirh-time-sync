@@ -284,6 +284,28 @@ class SQLiteAttendanceRepository(SQLiteRepositoryBase, AttendanceRepository):
         finally:
             conn.close()
 
+    def mark_records_by_ids(self, ids: List[int], status: str = ProcessedStatus.PROCESSED) -> None:
+        """Mark records as processed by their IDs."""
+        if not ids:
+            return
+
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+
+            placeholders = ','.join(['?'] * len(ids))
+
+            cursor.execute(f'''
+                UPDATE attendance_records 
+                SET processed = ?, errors = NULL
+                WHERE id IN ({placeholders})
+            ''', [status] + ids)
+
+            conn.commit()
+            logger.info(f"Marked {len(ids)} records as {status}")
+        finally:
+            conn.close()
+
     def mark_record_error(self, record_id: int, errors: List[Dict[str, str]]) -> None:
         """Mark a record as having errors."""
         conn = self.get_connection()

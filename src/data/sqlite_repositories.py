@@ -248,6 +248,19 @@ class SQLiteAttendanceRepository(SQLiteRepositoryBase, AttendanceRepository):
         finally:
             conn.close()
 
+    def delete_records(self, ids: List[int]) -> None:
+        """Delete a list of records"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            placeholders = ', '.join('?' * len(ids))
+            query = f'DELETE FROM attendance_records WHERE id IN ({placeholders})'
+            cursor.execute(query, ids)
+            conn.commit()
+            logger.info(f"Deleted attendance records with ids {ids}")
+        finally:
+            conn.close()
+
     def mark_records_by_timestamps(self, timestamps: List[str], status: str = ProcessedStatus.PROCESSED) -> None:
         """Mark records as processed by their timestamps."""
         if not timestamps:

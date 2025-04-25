@@ -51,7 +51,7 @@ class ConfigurationService:
             # Save updated config
             return self.save_config(config)
         except Exception as e:
-            logger.error(f"Error updating configuration: {e}")
+            logger.error(f"Erreur de mise à jour de la configuration: {e}")
             return False
 
     def test_device_connection(self, ip: str, port: int) -> Dict[str, Any]:
@@ -69,7 +69,7 @@ class ConfigurationService:
             if not device_service.connect():
                 return {
                     'success': False,
-                    'message': f"Could not connect to device at {ip}:{port}"
+                    'message': f"Impossible de se connecter à l'appareil à l'adresse {ip}:{port}"
                 }
 
             # Get user count
@@ -81,14 +81,14 @@ class ConfigurationService:
 
             return {
                 'success': True,
-                'message': f"Successfully connected to device. Found {user_count} users.",
+                'message': f"Connexion réussie à l'appareil. {user_count} utilisateurs trouvés.",
                 'user_count': user_count
             }
         except Exception as e:
             logger.error(f"Error testing device connection: {e}")
             return {
                 'success': False,
-                'message': f"Error: {str(e)}"
+                'message': f"Erreur: {str(e)}"
             }
 
     def test_api_connection(self, company_id: str, username: str, password: str) -> Dict[str, Any]:
@@ -115,16 +115,16 @@ class ConfigurationService:
             if api_service.authenticate():
                 return {
                     'success': True,
-                    'message': f"Successfully authenticated with API at {self.api_url}"
+                    'message': f"Authentification réussie auprès de l'API à {self.api_url}"
                 }
             else:
                 return {
                     'success': False,
-                    'message': f"Failed to authenticate with API at {self.api_url}"
+                    'message': f"Échec de l'authentification avec l'API à {self.api_url}"
                 }
         except Exception as e:
-            logger.error(f"Error testing API connection: {e}")
+            logger.error(f"Erreur lors du test de la connexion à l'API: {e}")
             return {
                 'success': False,
-                'message': f"Error: {str(e)}"
+                'message': f"Erreur: {str(e)}"
             }

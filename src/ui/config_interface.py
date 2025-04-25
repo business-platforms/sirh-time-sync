@@ -7,6 +7,7 @@ import logging
 import threading
 from typing import Optional, Callable
 
+from src.application import Application
 from src.domain.models import Config
 from src.data.repositories import ConfigRepository
 from src.core.config_service import ConfigurationService
@@ -26,7 +27,7 @@ class ConfigInterface:
     COLOR_NEUTRAL = "#757575"  # Gray for neutral states
     COLOR_CARD = "#FFFFFF"  # White card background
 
-    def __init__(self, root: Optional[tk.Tk], config_repository: ConfigRepository):
+    def __init__(self, root: Optional[tk.Tk], config_repository: ConfigRepository, application: Application):
         """
         Initialize the configuration interface.
 
@@ -34,6 +35,7 @@ class ConfigInterface:
             root: Tkinter root window, creates a new one if None
             config_repository: Repository for configuration data
         """
+        self.app = application
         self.config_repository = config_repository
         self.config_service = ConfigurationService(config_repository)
         self.root = tk.Toplevel(root) if root else tk.Tk()
@@ -132,6 +134,9 @@ class ConfigInterface:
         self.status_label = ttk.Label(status_frame, textvariable=self.status_var,
                                       style='Neutral.TLabel', wraplength=700)
         self.status_label.pack(anchor=tk.W, pady=5)
+
+        # After window is shown, check for updates
+        self.root.after(5000, lambda: self.app.check_for_updates(show_if_none=False))
 
     def show(self):
         """Make the window modal and visible."""
@@ -238,6 +243,8 @@ class ConfigInterface:
                    style='Action.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Tester API", command=self.test_api_connection,
                    style='Action.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Vérifier les Mises à Jour", command=self.check_for_updates,
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Enregistrer Configuration", command=self.save_config,
                    style='Action.TButton').pack(side=tk.RIGHT, padx=5)
 
@@ -301,6 +308,10 @@ class ConfigInterface:
             self.show_validation_error("L'ID de l'entreprise et l'IP de l'appareil sont des champs obligatoires.")
             return False
         return True
+
+    def check_for_updates(self):
+        """Check for application updates."""
+        self.app.check_for_updates(show_if_none=True)
 
     def save_config(self):
         """Save configuration to the repository."""

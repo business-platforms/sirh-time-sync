@@ -66,6 +66,7 @@ class MainWindow:
         self.user_importer_status_label = None
         self.test_results_label = None
         self.logo_img = None
+        self.button_container = None  # New reference for button container
 
         # Layout references
         self.main_frame = None
@@ -125,21 +126,25 @@ class MainWindow:
 
         # Title with logos
         title_frame = ttk.Frame(self.main_frame, style='TFrame')
-        title_frame.pack(fill=tk.X, pady=(5, 20))
+        title_frame.pack(fill=tk.X, pady=(5, 15))  # Reduce vertical padding from (5, 20) to (5, 15)
 
-        # Global project logo on the left
+        # Add width constraint to the title_frame
+        title_frame.pack_propagate(False)  # Prevent propagation of size from children
+        title_frame.configure(height=50)  # Set a fixed height for the title area
+
+        # Global project logo on the left - make smaller
         if hasattr(self, 'global_logo_img'):
             global_logo_label = ttk.Label(title_frame, image=self.global_logo_img, background=self.COLOR_BACKGROUND)
-            global_logo_label.pack(side=tk.LEFT, padx=(0, 10))
+            global_logo_label.pack(side=tk.LEFT, padx=(0, 5))  # Reduce padding from (0, 10) to (0, 5)
 
-        # Title text in the middle
+        # Title text in the middle - use smaller font or reduce padding
         title_text = ttk.Label(title_frame, text="Système de Présence", style='Title.TLabel')
-        title_text.pack(side=tk.LEFT, padx=15)
+        title_text.pack(side=tk.LEFT, padx=10)  # Reduce padding from 15 to 10
 
-        # Application logo on the right
+        # Application logo on the right - make smaller
         if hasattr(self, 'app_logo_img'):
             app_logo_label = ttk.Label(title_frame, image=self.app_logo_img, background=self.COLOR_BACKGROUND)
-            app_logo_label.pack(side=tk.RIGHT, padx=(10, 0))
+            app_logo_label.pack(side=tk.RIGHT, padx=(5, 0))  # Reduce padding from (10, 0) to (5, 0)
 
         # Create the layout based on initial window size
         self.create_responsive_layout()
@@ -148,13 +153,22 @@ class MainWindow:
         toolbar_frame = ttk.Frame(self.main_frame, style='TFrame')
         toolbar_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(25, 0))
 
-        # Modern flat buttons with icons
-        ttk.Button(toolbar_frame, text="⚙ Configurer", command=self.open_config,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar_frame, text="👥 Utilisateurs", command=self.open_users,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar_frame, text="📋 Enregistrements", command=self.open_records,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
+        # Create a container frame to better handle button layout
+        self.button_container = ttk.Frame(toolbar_frame, style='TFrame')
+        self.button_container.pack(fill=tk.X, expand=True)
+
+        # Modern flat buttons with icons - with flex layout
+        config_btn = ttk.Button(self.button_container, text="⚙ Configurer", command=self.open_config,
+                                style='Action.TButton')
+        config_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        users_btn = ttk.Button(self.button_container, text="👥 Utilisateurs", command=self.open_users,
+                               style='Action.TButton')
+        users_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        records_btn = ttk.Button(self.button_container, text="📋 Enregistrements", command=self.open_records,
+                                 style='Action.TButton')
+        records_btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
         # Set up initial state
         self.update_ui_based_on_config()
@@ -196,6 +210,22 @@ class MainWindow:
         style.configure('Start.TButton', background='#f0f0f0')
         style.configure('Stop.TButton', background=self.COLOR_ERROR)
         style.configure('Action.TButton', padding=10)
+
+        # Modern button styles with reduced padding and cleaner look
+        style.configure('TButton', font=('Segoe UI', 9), padding=5)
+        style.configure('ModernButton.TButton',
+                        padding=(5, 3),
+                        font=('Segoe UI', 9))
+
+        # Define hover and pressed states for modern look
+        style.map('ModernButton.TButton',
+                  background=[('active', '#e0e6ed'), ('pressed', '#d0d6dd')],
+                  relief=[('pressed', 'flat'), ('!pressed', 'flat')])
+
+        # Small action buttons
+        style.configure('SmallAction.TButton',
+                        padding=(4, 2),
+                        font=('Segoe UI', 8))
 
         # Card styles
         style.configure('Card.TLabelframe', background=self.COLOR_CARD, borderwidth=0)
@@ -257,59 +287,53 @@ class MainWindow:
         self.create_system_info(self.left_column)
 
     def create_system_controls(self, parent):
-        """Create the System Controls card."""
-        controls_card = self.create_card(parent, "Contrôles du Système")
+        """Create the System Controls card with responsive button layout."""
+        controls_card = self.create_card(parent, "Contrôles du Système", with_status=True)
 
-        # Status row in controls card
-        status_frame = ttk.Frame(controls_card, style='Card.TFrame')
-        status_frame.pack(fill=tk.X, pady=10)
+        # Create a responsive container for the buttons
+        self.system_buttons_container = ttk.Frame(controls_card, style='Card.TFrame')
+        self.system_buttons_container.pack(fill=tk.X, pady=12)
 
-        status_label = ttk.Label(status_frame, text="Statut:", style='Card.TLabel')
-        status_label.pack(side=tk.LEFT)
-
-        self.status_label = ttk.Label(status_frame, textvariable=self.status_var,
-                                      style='Success.TLabel' if self.app.is_running() else 'Error.TLabel')
-        self.status_label.pack(side=tk.LEFT, padx=10)
-
-        # Separator for visual division
-        ttk.Separator(controls_card, orient='horizontal').pack(fill=tk.X, pady=10)
-
-        # Buttons row with improved spacing
-        buttons_frame = ttk.Frame(controls_card, style='Card.TFrame')
-        buttons_frame.pack(fill=tk.X, pady=12)
-
-        self.start_button = ttk.Button(buttons_frame, text="► Démarrer le Système",
+        # Create buttons that will fill available space
+        self.start_button = ttk.Button(self.system_buttons_container, text="► Démarrer",
                                        command=self.start_system, style='Action.TButton')
-        self.start_button.pack(side=tk.LEFT, padx=(0, 10))
+        self.start_button.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
-        self.stop_button = ttk.Button(buttons_frame, text="■ Arrêter le Système",
+        self.stop_button = ttk.Button(self.system_buttons_container, text="■ Arrêter",
                                       command=self.stop_system, state=tk.DISABLED, style='Action.TButton')
-        self.stop_button.pack(side=tk.LEFT)
+        self.stop_button.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
     def create_connection_tests(self, parent):
-        """Create Connection Tests card."""
+        """Create Connection Tests card with responsive button."""
         connection_card = self.create_card(parent, "Tests de Connexion")
 
-        # Device connection status
-        self.device_status_label = ttk.Label(connection_card, textvariable=self.device_test_var,
-                                             style='Neutral.TLabel')
-        self.device_status_label.pack(anchor=tk.W, pady=8)
+        # Create a frame to hold both status indicators in one row
+        status_frame = ttk.Frame(connection_card, style='Card.TFrame')
+        status_frame.pack(fill=tk.X, pady=8)
 
-        # API connection status
-        self.api_status_label = ttk.Label(connection_card, textvariable=self.api_test_var,
+        # Device connection status (left side)
+        self.device_status_label = ttk.Label(status_frame, textvariable=self.device_test_var,
+                                             style='Neutral.TLabel')
+        self.device_status_label.pack(side=tk.LEFT, anchor=tk.W)
+
+        # Add a spacer between indicators
+        ttk.Label(status_frame, text="  -  ", style='Card.TLabel').pack(side=tk.LEFT)
+
+        # API connection status (right side)
+        self.api_status_label = ttk.Label(status_frame, textvariable=self.api_test_var,
                                           style='Neutral.TLabel')
-        self.api_status_label.pack(anchor=tk.W, pady=8)
+        self.api_status_label.pack(side=tk.LEFT, anchor=tk.W)
 
         # Separator for visual division
-        ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
+        # ttk.Separator(connection_card, orient='horizontal').pack(fill=tk.X, pady=10)
 
-        # Test button
-        test_button_frame = ttk.Frame(connection_card, style='Card.TFrame')
-        test_button_frame.pack(fill=tk.X, pady=12)
+        # Test button in a container for responsiveness
+        self.test_button_container = ttk.Frame(connection_card, style='Card.TFrame')
+        self.test_button_container.pack(fill=tk.X, pady=12)
 
-        self.test_button = ttk.Button(test_button_frame, text="Relancer les Tests de Connexion",
-                                      command=self.test_connections, style='Action.TButton')
-        self.test_button.pack(pady=5)
+        self.test_button = ttk.Button(self.test_button_container, text="Relancer Tests",
+                                      command=self.test_connections, style='ModernButton.TButton')
+        self.test_button.pack(fill=tk.X, expand=True, pady=5, padx=5)
 
         # Test results
         self.test_results_label = ttk.Label(connection_card, textvariable=self.test_results_var,
@@ -352,7 +376,41 @@ class MainWindow:
                 # Wait a short time and then update layout
                 self.root.after(100, self.create_responsive_layout)
 
-    def create_card(self, parent, title):
+            # Update system control buttons layout based on width
+            if hasattr(self, 'system_buttons_container'):
+                if event.width < 500:  # For small screens
+                    # Stack system buttons vertically
+                    for child in self.system_buttons_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.TOP, fill=tk.X, expand=True, pady=2, padx=5)
+                else:
+                    # Horizontal system button layout
+                    for child in self.system_buttons_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+            # Update test button layout
+            if hasattr(self, 'test_button_container') and hasattr(self, 'test_button'):
+                if event.width < 400:  # Very small screens
+                    # Use a more compact label
+                    self.test_button.config(text="Tests")
+                else:
+                    self.test_button.config(text="Relancer Tests")
+
+            # Update toolbar button layout based on width
+            if hasattr(self, 'button_container'):
+                if event.width < 400:  # Very small screens
+                    # Stack buttons vertically
+                    for child in self.button_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.TOP, fill=tk.X, expand=True, pady=2, padx=5)
+                else:
+                    # Horizontal button layout
+                    for child in self.button_container.winfo_children():
+                        child.pack_forget()
+                        child.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+    def create_card(self, parent, title, with_status=False):
         """Create a card with the given title in the parent frame."""
         # Create an outer frame that will have the background color
         outer_frame = ttk.Frame(parent, style='Card.TFrame')
@@ -385,8 +443,22 @@ class MainWindow:
         title_frame = ttk.Frame(content_frame, style='Card.TFrame')
         title_frame.pack(fill=tk.X, pady=(15, 10), padx=15)
 
-        title_label = ttk.Label(title_frame, text=title, style='SectionTitle.TLabel')
-        title_label.pack(anchor=tk.W)
+        # Create a row for the title and status (if needed)
+        title_row = ttk.Frame(title_frame, style='Card.TFrame')
+        title_row.pack(fill=tk.X)
+
+        title_label = ttk.Label(title_row, text=title, style='SectionTitle.TLabel')
+        title_label.pack(side=tk.LEFT, anchor=tk.W)
+
+        # Add status indicator if requested
+        if with_status:
+            # Add spacer
+            ttk.Label(title_row, text="  -  ", style='Card.TLabel').pack(side=tk.LEFT)
+
+            # Status indicator
+            self.status_label = ttk.Label(title_row, textvariable=self.status_var,
+                                          style='Success.TLabel' if self.app.is_running() else 'Error.TLabel')
+            self.status_label.pack(side=tk.LEFT)
 
         # Divider below title
         ttk.Separator(content_frame, orient='horizontal').pack(fill=tk.X, padx=15)
@@ -486,15 +558,15 @@ class MainWindow:
         """Load both the global project logo and application-specific logo."""
         try:
             # Load global project logo
-            global_logo_path = self.resource_path("assets/logo.png")
+            global_logo_path = self.resource_path("assets/timesync-logo.png")
             global_logo_img = tk.PhotoImage(file=global_logo_path)
-            global_logo_display = global_logo_img.subsample(18, 18)  # Adjust scale as needed
+            global_logo_display = global_logo_img.subsample(8, 8)  # Adjust scale as needed
             self.global_logo_img = global_logo_display  # Store reference
 
             # Load application-specific logo
-            app_logo_path = self.resource_path("assets/timesync-logo.png")
+            app_logo_path = self.resource_path("assets/logo.png")
             app_logo_img = tk.PhotoImage(file=app_logo_path)
-            app_logo_display = app_logo_img.subsample(5, 5)  # Adjust scale as needed
+            app_logo_display = app_logo_img.subsample(32, 32)  # Adjust scale as needed
             self.app_logo_img = app_logo_display  # Store reference
 
             # Use application logo for window icon
@@ -630,7 +702,7 @@ class MainWindow:
 
     def open_config(self):
         """Open the configuration window."""
-        config_window = ConfigInterface(self.root, self.app.container.get('config_repository'))
+        config_window = ConfigInterface(self.root, self.app.container.get('config_repository'), self.app)
         config_window.show()
 
         # After config window is closed, check if we need to update the UI

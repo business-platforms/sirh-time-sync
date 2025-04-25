@@ -19,7 +19,7 @@ def main():
     if args.config:
         # Run only the configuration window
         from src.ui.config_interface import ConfigInterface
-        config_window = ConfigInterface(None, app.container.get('config_repository'))
+        config_window = ConfigInterface(None, app.container.get('config_repository'), app)
         config_window.root.mainloop()
     elif args.start:
         # Start service in command line mode

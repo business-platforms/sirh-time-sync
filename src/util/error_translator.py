@@ -30,10 +30,12 @@ POINTING_DAY_LESS_THAN_START_DAY = "E344"
 MONTH_POINTING_USED_IN_EMPLOYEE_PAY = "E346"
 MONTH_POINTING_WAS_UPDATED = "E368"
 NO_CORRESPONDING_ENTRANCE = "E360"
+SUCCESSIVE_ENTRIES = "E370"
 INTERSECTION_OF_PERIODS = "E4"
 UNKNOWN = "E6"
 DATE_PARSE_ERROR = "E2"
 REQUIRED_FIELD = "E0"
+
 # Translation mapping
 pointing_error_translations = {
     HOURS_MUST_BE_NULL: "Les heures doivent être nulles",
@@ -54,6 +56,7 @@ pointing_error_translations = {
     MONTH_POINTING_USED_IN_EMPLOYEE_PAY: "Pointage mensuel utilisé dans la paie de l'employé",
     MONTH_POINTING_WAS_UPDATED: "Le pointage mensuel a été mis à jour",
     INTERSECTION_OF_PERIODS: "Chevauchement de pointage",
+    SUCCESSIVE_ENTRIES: "Deux entrées successives",
     DATE_PARSE_ERROR: "Erreur d'analyse de date",
     NO_CORRESPONDING_ENTRANCE: "Aucune entrée pour cette sortie",
     REQUIRED_FIELD: "REQUIRED FIELD",

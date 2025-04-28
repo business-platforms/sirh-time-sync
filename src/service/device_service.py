@@ -73,6 +73,7 @@ class DeviceService:
 
             return [
                 User(
+                    id=user.uid,
                     user_id=user.user_id,
                     name=user.name,
                 )
@@ -100,6 +101,30 @@ class DeviceService:
         except Exception as e:
             logger.error(f"Error setting user: {e}")
             return False
+
+    def delete_users(self, uids: List[int]) -> bool:
+        """Delete multiple users from the device by their UIDs."""
+        logger.info(f"Attempting to delete {len(uids)} users from the device")
+        if not self.connection or not self.connection.conn:
+            if not self.connect():
+                logger.error("Not connected to ZK device")
+                return False
+
+        deleted_users = 0
+        for uid in uids:
+            try:
+                self.connection.conn.delete_user(uid=uid)
+                deleted_users += 1
+                logger.debug(f"Successfully delete user with uid: {uid}")
+            except Exception as e:
+                logger.error(f"Error deleting user: {uid}, error: {e}")
+        if deleted_users == 0:
+            logger.info(f"No user has been deleted")
+            return False
+        else:
+            logger.info(f"Successfully deleted {deleted_users} users from the device")
+            return True
+
 
     def get_attendance_records(self) -> List[AttendanceRecord]:
         """Get attendance records from the device."""

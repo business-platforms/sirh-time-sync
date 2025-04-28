@@ -50,8 +50,18 @@ class AttendanceRepository(ABC):
         pass
 
     @abstractmethod
+    def delete_records(self, ids: List[int]) -> None:
+        """Delete a list of records"""
+        pass
+
+    @abstractmethod
     def mark_records_by_timestamps(self, timestamps: List[str], status: str = ProcessedStatus.PROCESSED) -> None:
         """Mark records as processed by their timestamps."""
+        pass
+
+    @abstractmethod
+    def mark_records_by_ids(self, ids: List[int], status: str = ProcessedStatus.PROCESSED) -> None:
+        """Mark records as processed by ids."""
         pass
 
     @abstractmethod

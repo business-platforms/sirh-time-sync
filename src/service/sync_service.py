@@ -138,7 +138,7 @@ class SyncService:
 
                     # Check for errors
                     if len(attendance_records) != len(records):
-                        self._process_error_records()
+                        self._process_error_records(job_id)
 
                     # Log successful upload
                     self.attendance_service.log_api_upload({
@@ -185,10 +185,10 @@ class SyncService:
             logger.error(f"Error processing upload job: {e}")
             return 0
 
-    def _process_error_records(self) -> None:
+    def _process_error_records(self, job_id = None) -> None:
         """Process error records from the API."""
         try:
-            failed_records = self.api_service.get_pointing_import_lines()
+            failed_records = self.api_service.get_pointing_import_lines(job_id)
 
             for failed_record in failed_records:
                 record_id = failed_record.get("recordId")

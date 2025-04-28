@@ -51,6 +51,8 @@ args = [
     "--hidden-import=pandas",
     "--hidden-import=openpyxl",
     "--hidden-import=tkinter.simpledialog",
+    "--hidden-import=pystray",
+    "--hidden-import=pillow",
     # Exclude unnecessary packages to reduce size
     # "--exclude-module=matplotlib",
     # "--exclude-module=scipy",

@@ -53,7 +53,7 @@ class UsersInterface:
 
         # Configure window basics
         self.root.title("Gestion des Utilisateurs")
-        self.root.geometry("850x700")
+        self.root.geometry("1400x700")
         self.root.minsize(850, 700)
         self.root.withdraw()  # Hide window during setup
 
@@ -89,6 +89,10 @@ class UsersInterface:
         style.configure('Header.TFrame', background=self.COLOR_PRIMARY)
         style.configure('Card.TFrame', background=self.COLOR_CARD, relief='flat', borderwidth=0)
 
+        # Add LabelFrame style
+        style.configure('TLabelframe', background=self.COLOR_BACKGROUND)
+        style.configure('TLabelframe.Label', background=self.COLOR_BACKGROUND, font=('Segoe UI', 9, 'bold'))
+
         style.configure('TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 10))
         style.configure('Card.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 10))
         style.configure('Header.TLabel', background=self.COLOR_PRIMARY, foreground='white',
@@ -105,6 +109,7 @@ class UsersInterface:
         # Button styles
         style.configure('TButton', font=('Segoe UI', 10), padding=6)
         style.configure('Action.TButton', padding=8)
+        style.configure('Delete.TButton', padding=8)
 
         # Treeview styles
         style.configure('Treeview', font=('Segoe UI', 10))
@@ -163,23 +168,72 @@ class UsersInterface:
         button_frame = ttk.Frame(parent, style='TFrame')
         button_frame.pack(fill=tk.X, pady=(10, 5))
 
+        # Create three separate frames for button groups
+        left_frame = ttk.Frame(button_frame, style='TFrame')
+        left_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        middle_frame = ttk.Frame(button_frame, style='TFrame')
+        middle_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        right_frame = ttk.Frame(button_frame, style='TFrame')
+        right_frame.pack(side=tk.RIGHT, fill=tk.X, padx=(0, 10))
+
+        # Data operations group (left)
+        data_frame = ttk.LabelFrame(left_frame, text="Opérations de données", style='TFrame')
+        data_frame.pack(side=tk.LEFT, padx=(10, 5), pady=5)
+
         # Import Users button
         self.import_button = ttk.Button(
-            button_frame,
+            data_frame,
             text="📥 Importer des Utilisateurs",
             command=self.import_users,
             style='Action.TButton'
         )
-        self.import_button.pack(side=tk.LEFT, padx=5)
+        self.import_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Refresh button
         refresh_button = ttk.Button(
-            button_frame,
+            data_frame,
             text="🔄 Actualiser la Liste",
             command=self.refresh_data,
             style='Action.TButton'
         )
-        refresh_button.pack(side=tk.LEFT, padx=5)
+        refresh_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Selection operations group (middle)
+        selection_frame = ttk.LabelFrame(middle_frame, text="Sélection", style='TFrame')
+        selection_frame.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Select All button
+        select_all_button = ttk.Button(
+            selection_frame,
+            text="✓ Tout Sélectionner",
+            command=self.select_all_users,
+            style='Action.TButton'
+        )
+        select_all_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Add a Deselect All button for better user experience
+        deselect_all_button = ttk.Button(
+            selection_frame,
+            text="✗ Tout Désélectionner",
+            command=self.deselect_all_users,  # Need to add this method
+            style='Action.TButton'
+        )
+        deselect_all_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Destructive operations group (right)
+        delete_frame = ttk.LabelFrame(right_frame, text="Actions", style='TFrame')
+        delete_frame.pack(side=tk.RIGHT, padx=5, pady=5)
+
+        # Delete User button
+        self.delete_button = ttk.Button(
+            delete_frame,
+            text="🗑️ Supprimer Utilisateur(s)",
+            command=self.delete_users,
+            style='Delete.TButton'
+        )
+        self.delete_button.pack(side=tk.LEFT, padx=5, pady=5)
 
     def resource_path(self, relative_path):
         """Get absolute path to resource, works for dev and for PyInstaller."""
@@ -199,16 +253,19 @@ class UsersInterface:
         tree_frame = ttk.Frame(card, style='Card.TFrame')
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Define columns
-        columns = ("id", "name")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", selectmode="browse")
+        # Define columns - now including all three fields
+        columns = ("id", "user_id", "name")
+        # Changed selectmode from "browse" to "extended" to allow multi-selection
+        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", selectmode="extended")
 
         # Configure column headings
-        self.tree.heading("id", text="ID Utilisateur")
+        self.tree.heading("id", text="ID (UID)")
+        self.tree.heading("user_id", text="ID Utilisateur")
         self.tree.heading("name", text="Code Employé")
 
         # Configure column widths and alignment
-        self.tree.column("id", width=150, anchor=tk.CENTER)
+        self.tree.column("id", width=100, anchor=tk.CENTER)
+        self.tree.column("user_id", width=150, anchor=tk.CENTER)
         self.tree.column("name", width=450, anchor=tk.W)
 
         # Add vertical scrollbar
@@ -295,6 +352,70 @@ class UsersInterface:
         except Exception as e:
             self.handle_error("Erreur lors de l'importation des utilisateurs", e)
 
+    def delete_users(self):
+        """Delete selected users using the device service."""
+        if not self.device_service:
+            self.status_var.set("Service de l'appareil non disponible")
+            self.status_label.config(style='Error.TLabel')
+            return
+
+        # Get selected users
+        selected_items = self.tree.selection()
+        if not selected_items:
+            self.show_error("Veuillez sélectionner au moins un utilisateur à supprimer.")
+            return
+
+        # Collect UIDs and names for all selected users
+        uids = []
+        user_info = []
+        for item in selected_items:
+            values = self.tree.item(item, "values")
+            uid = int(values[0])  # The ID/UID is the first column
+            name = values[2]  # The name is the third column
+            uids.append(uid)
+            user_info.append(f"{name} (UID: {uid})")
+
+        # Create confirmation message based on number of selected users
+        if len(uids) == 1:
+            confirm_message = f"Êtes-vous sûr de vouloir supprimer l'utilisateur {user_info[0]}?"
+        else:
+            confirm_message = f"Êtes-vous sûr de vouloir supprimer les {len(uids)} utilisateurs suivants?\n\n"
+            # Add list of users to be deleted (limit to first 5 if too many)
+            if len(user_info) <= 5:
+                confirm_message += "\n".join(f"- {info}" for info in user_info)
+            else:
+                confirm_message += "\n".join(f"- {info}" for info in user_info[:5])
+                confirm_message += f"\n... et {len(user_info) - 5} autres"
+
+        # Confirm deletion
+        if not messagebox.askyesno("Confirmer la suppression", confirm_message, parent=self.root):
+            return
+
+        try:
+            # Update status
+            self.status_var.set("Suppression des utilisateurs...")
+            self.status_label.config(style='Warning.TLabel')
+            self.root.update()  # Force UI update
+
+            # Delete users from device using the new bulk delete method
+            batch_size = 50
+            for i in range(0, len(uids), batch_size):
+                batch = uids[i:i + batch_size]
+                thread = threading.Thread(
+                    target=self.device_service.delete_users,
+                    args=(batch,),
+                    daemon=True
+                )
+                thread.start()
+            self.show_success(f"Le processus d'importation est en cours d'exécution en arrière-plan.")
+
+            # Refresh the display
+            self.refresh_user_list()
+
+
+        except Exception as e:
+            self.handle_error("Erreur lors de la suppression des utilisateurs", e)
+
     def refresh_user_list(self):
         """Update the treeview with current user data."""
         # Clear existing items
@@ -310,20 +431,28 @@ class UsersInterface:
         # Insert user data into the treeview
         for user in self.users:
             # Handle different types of user objects
-            if hasattr(user, 'user_id'):
+            if hasattr(user, 'id') and hasattr(user, 'user_id') and hasattr(user, 'name'):
+                # Complete user object with all fields
+                uid = user.id
                 user_id = user.user_id
                 name = user.name
-            elif hasattr(user, 'id'):
-                user_id = user.id
+            elif hasattr(user, 'user_id') and hasattr(user, 'name'):
+                # User with user_id and name but missing id
+                uid = user.user_id  # Use user_id as fallback for uid
+                user_id = user.user_id
                 name = user.name
             elif isinstance(user, dict):
-                user_id = user.get('id', 'N/A')
+                # Dictionary representation of user
+                uid = user.get('id', user.get('user_id', 'N/A'))
+                user_id = user.get('user_id', 'N/A')
                 name = user.get('name', 'N/A')
             else:
+                # Unknown format
+                uid = 'N/A'
                 user_id = 'N/A'
                 name = 'N/A'
 
-            self.tree.insert("", tk.END, values=(user_id, name))
+            self.tree.insert("", tk.END, values=(uid, user_id, name))
 
         # Update status message
         self.status_var.set(f"Affichage de {len(self.users)} utilisateurs")
@@ -336,10 +465,36 @@ class UsersInterface:
 
         item = self.tree.selection()[0]
         values = self.tree.item(item, "values")
-        user_id = values[0]
+        uid = values[0]
+        user_id = values[1]
+        name = values[2]
 
         # Placeholder for future user detail view
-        self.status_var.set(f"ID utilisateur sélectionné: {user_id}")
+        self.status_var.set(f"Utilisateur sélectionné: {name} (UID: {uid}, ID: {user_id})")
+        self.status_label.config(style='Neutral.TLabel')
+
+    def select_all_users(self):
+        """Select all users in the treeview."""
+        # Clear current selection
+        self.tree.selection_remove(self.tree.selection())
+
+        # Select all items
+        for item in self.tree.get_children():
+            self.tree.selection_add(item)
+
+        # Update status
+        items_count = len(self.tree.get_children())
+        if items_count > 0:
+            self.status_var.set(f"{items_count} utilisateurs sélectionnés")
+            self.status_label.config(style='Neutral.TLabel')
+
+    def deselect_all_users(self):
+        """Deselect all users in the treeview."""
+        # Clear current selection
+        self.tree.selection_remove(self.tree.selection())
+
+        # Update status
+        self.status_var.set("Sélection effacée")
         self.status_label.config(style='Neutral.TLabel')
 
     def show_error(self, message: str):

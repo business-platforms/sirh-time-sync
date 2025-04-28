@@ -1,4 +1,3 @@
-# src/ui/records_interface.py
 import ast
 import os
 import sys
@@ -55,7 +54,7 @@ class RecordsInterface:
 
         # Configure window basics
         self.root.title("Enregistrements de Présence")
-        self.root.geometry("1300x750")
+        self.root.geometry("1500x800")
         self.root.minsize(1000, 700)
         self.root.withdraw()  # Hide window during setup
 
@@ -133,31 +132,78 @@ class RecordsInterface:
                                 style='Header.TLabel')
         title_label.pack(side=tk.LEFT, padx=15, pady=10)
 
+        # Add toolbar to header
+        toolbar = ttk.Frame(header_frame, style='Header.TFrame')
+        toolbar.pack(side=tk.RIGHT, padx=15, pady=5)
+
+        # Quick action buttons in header toolbar
+        ttk.Button(toolbar, text="➕", width=3,
+                   command=self.add_record).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="🔄", width=3,
+                   command=self.synchronize_records).pack(side=tk.LEFT, padx=2)
+
         # Record count in header
         count_label = ttk.Label(header_frame, textvariable=self.record_count_var,
                                 style='Header.TLabel')
         count_label.pack(side=tk.RIGHT, padx=15, pady=10)
 
-        # Main content area
-        main_frame = ttk.Frame(self.root, padding=15, style='TFrame')
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # Main content area with responsive layout
+        self.main_frame = ttk.Frame(self.root, padding=15, style='TFrame')
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Create search and filter card
-        self.create_search_filter_card(main_frame)
+        # Create filter panel with toggle
+        self.setup_filter_panel()
 
         # Create records list card
-        self.create_records_card(main_frame)
+        self.create_records_card(self.main_frame)
 
         # Create action button panel
-        self.create_action_panel(main_frame)
+        self.create_action_panel(self.main_frame)
 
         # Status indicator at the bottom
-        status_frame = ttk.Frame(main_frame, style='TFrame')
+        status_frame = ttk.Frame(self.main_frame, style='TFrame')
         status_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=10)
 
         self.status_label = ttk.Label(status_frame, textvariable=self.status_var,
                                       style='Neutral.TLabel')
         self.status_label.pack(anchor=tk.W, pady=5)
+
+    def setup_filter_panel(self):
+        """Create a collapsible filter panel."""
+        # Container for filter-related components
+        filter_section = ttk.Frame(self.main_frame, style='TFrame')
+        filter_section.pack(fill=tk.X, pady=(0, 10))
+
+        # Toggle button frame at the top
+        toggle_frame = ttk.Frame(filter_section, style='TFrame')
+        toggle_frame.pack(fill=tk.X, pady=(0, 5))
+
+        # Toggle button
+        self.filter_panel_visible = tk.BooleanVar(value=False)
+        self.toggle_text = tk.StringVar(value="▼ Afficher les filtres")
+        self.toggle_btn = ttk.Button(toggle_frame, textvariable=self.toggle_text,
+                                     command=self.toggle_filter_panel)
+        self.toggle_btn.pack(side=tk.RIGHT)
+
+        # Container for actual filter contents
+        self.filter_container = ttk.Frame(filter_section, style='TFrame')
+        #self.filter_container.pack(fill=tk.X)
+
+        # Add filter card to container
+        self.create_search_filter_card(self.filter_container)
+
+    def toggle_filter_panel(self):
+        """Toggle the visibility of the filter panel."""
+        if self.filter_panel_visible.get():
+            # Hide the filter content
+            self.filter_container.pack_forget()
+            self.filter_panel_visible.set(False)
+            self.toggle_text.set("▶ Afficher les filtres")
+        else:
+            # Show the filter content
+            self.filter_container.pack(fill=tk.X)
+            self.filter_panel_visible.set(True)
+            self.toggle_text.set("▼ Masquer les filtres")
 
     def create_card(self, parent, title):
         """Create a card with the given title in the parent frame."""
@@ -172,52 +218,69 @@ class RecordsInterface:
         return inner_content_frame
 
     def create_search_filter_card(self, parent):
-        """Create the search and filter controls card."""
+        """Create the search and filter controls card with modern organization."""
+        # Main card container
         card = self.create_card(parent, "Recherche et Filtres")
 
-        # Create two frames side by side
-        left_frame = ttk.Frame(card, style='Card.TFrame')
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        # Create tabs for different filter types
+        filter_notebook = ttk.Notebook(card)
+        filter_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        right_frame = ttk.Frame(card, style='Card.TFrame')
-        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
+        # === Basic Search Tab ===
+        basic_tab = ttk.Frame(filter_notebook, style='Card.TFrame', padding=10)
+        filter_notebook.add(basic_tab, text="Recherche Simple")
 
-        # Search controls in left frame
-        search_frame = ttk.Frame(left_frame, style='Card.TFrame')
+        # Search bar with icon
+        search_frame = ttk.Frame(basic_tab, style='Card.TFrame')
         search_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(search_frame, text="Rechercher:", style='Card.TLabel').pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Entry(search_frame, textvariable=self.search_var).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        ttk.Button(search_frame, text="Rechercher", command=self.apply_filter, style='Action.TButton').pack(
-            side=tk.LEFT, padx=5)
-        ttk.Button(search_frame, text="Réinitialiser", command=self.reset_search, style='Action.TButton').pack(
-            side=tk.LEFT, padx=5)
+        ttk.Label(search_frame, text="🔍", style='Card.TLabel').pack(side=tk.LEFT)
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
+        search_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        search_entry.bind("<Return>", lambda e: self.apply_filter())
 
-        # Filter controls in right frame
-        filter_frame = ttk.Frame(right_frame, style='Card.TFrame')
-        filter_frame.pack(fill=tk.X, pady=5)
+        button_frame = ttk.Frame(basic_tab, style='Card.TFrame')
+        button_frame.pack(fill=tk.X, pady=10)
 
-        # Filter radio buttons
-        ttk.Label(filter_frame, text="Filtre:", style='Card.TLabel').pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Radiobutton(filter_frame, text="Tous", variable=self.filter_var, value="all").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(filter_frame, text="Traités", variable=self.filter_var, value=ProcessedStatus.PROCESSED).pack(
-            side=tk.LEFT, padx=5)
-        ttk.Radiobutton(filter_frame, text="Non Traités", variable=self.filter_var,
-                        value=ProcessedStatus.UNPROCESSED).pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(filter_frame, text="Erreur", variable=self.filter_var, value=ProcessedStatus.ERROR).pack(
-            side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Rechercher", command=self.apply_filter,
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Réinitialiser", command=self.reset_search,
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5)
 
-        # Sort options
-        sort_frame = ttk.Frame(right_frame, style='Card.TFrame')
+        # === Advanced Filters Tab ===
+        advanced_tab = ttk.Frame(filter_notebook, style='Card.TFrame', padding=10)
+        filter_notebook.add(advanced_tab, text="Filtres Avancés")
+
+        # Status filter section
+        status_frame = ttk.LabelFrame(advanced_tab, text="Statut", style='Card.TLabelframe')
+        status_frame.pack(fill=tk.X, pady=5)
+
+        status_buttons = ttk.Frame(status_frame, style='Card.TFrame', padding=5)
+        status_buttons.pack(fill=tk.X)
+
+        ttk.Radiobutton(status_buttons, text="Tous", variable=self.filter_var, value="all").pack(side=tk.LEFT, padx=10)
+        ttk.Radiobutton(status_buttons, text="Traités", variable=self.filter_var,
+                        value=ProcessedStatus.PROCESSED).pack(side=tk.LEFT, padx=10)
+        ttk.Radiobutton(status_buttons, text="Non Traités", variable=self.filter_var,
+                        value=ProcessedStatus.UNPROCESSED).pack(side=tk.LEFT, padx=10)
+        ttk.Radiobutton(status_buttons, text="Erreur", variable=self.filter_var,
+                        value=ProcessedStatus.ERROR).pack(side=tk.LEFT, padx=10)
+
+        # Sort options section  
+        sort_frame = ttk.LabelFrame(advanced_tab, text="Tri", style='Card.TLabelframe')
         sort_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(sort_frame, text="Trier par:", style='Card.TLabel').pack(side=tk.LEFT, padx=(0, 10))
-        sort_combo = ttk.Combobox(sort_frame, textvariable=self.sort_var, width=15,
+        sort_content = ttk.Frame(sort_frame, style='Card.TFrame', padding=5)
+        sort_content.pack(fill=tk.X)
+
+        ttk.Label(sort_content, text="Trier par:", style='Card.TLabel').pack(side=tk.LEFT, padx=(0, 5))
+        sort_combo = ttk.Combobox(sort_content, textvariable=self.sort_var, width=15,
                                   values=["timestamp", "username", "id", "punch_type"])
         sort_combo.pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(sort_frame, text="Appliquer Filtre", command=self.apply_filter, style='Action.TButton').pack(
-            side=tk.LEFT, padx=(20, 0))
+        # Apply filter button
+        ttk.Button(advanced_tab, text="Appliquer les Filtres", command=self.apply_filter,
+                   style='Action.TButton').pack(pady=10, fill=tk.X)
 
     def resource_path(self, relative_path):
         """Get absolute path to resource, works for dev and for PyInstaller."""
@@ -235,30 +298,73 @@ class RecordsInterface:
         # The actual treeview will be created in display_records()
 
     def create_action_panel(self, parent):
-        """Create the panel with action buttons."""
+        """Create the panel with action buttons using a modern layout."""
+        # Main action container with two columns
         action_frame = ttk.Frame(parent, style='TFrame')
         action_frame.pack(fill=tk.X, pady=10)
 
-        # Left side - CRUD operations
-        crud_frame = ttk.Frame(action_frame, style='TFrame')
-        crud_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        # Create a two-column layout
+        left_panel = ttk.Frame(action_frame, style='TFrame')
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10), expand=True)
 
-        ttk.Button(crud_frame, text="📝 Ajouter un Enregistrement", command=self.add_record,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Button(crud_frame, text="✏️ Modifier l'Enregistrement", command=self.update_record,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Button(crud_frame, text="🗑️ Supprimer l'Enregistrement", command=self.delete_record,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Button(crud_frame, text="⚠️ Voir les Erreurs", command=self.view_errors,
-                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5)
+        right_panel = ttk.Frame(action_frame, style='TFrame')
+        right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0), expand=True)
 
-        # Right side - Synchronize button
-        sync_frame = ttk.Frame(action_frame, style='TFrame')
-        sync_frame.pack(side=tk.RIGHT, fill=tk.X)
+        # ===== LEFT PANEL: RECORD MANAGEMENT =====
+        # Record operations card
+        record_card = ttk.LabelFrame(left_panel, text="Gestion des Enregistrements", style='Card.TLabelframe')
+        record_card.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        sync_btn = ttk.Button(sync_frame, text="🔄 SYNCHRONISER", command=self.synchronize_records,
+        # Buttons container with grid layout
+        button_grid = ttk.Frame(record_card, style='Card.TFrame', padding=10)
+        button_grid.pack(fill=tk.BOTH, expand=True)
+
+        # Row 1: CRUD operations
+        ttk.Button(button_grid, text="📝 Ajouter", command=self.add_record,
+                   style='Action.TButton', width=15).grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        ttk.Button(button_grid, text="✏️ Modifier", command=self.update_record,
+                   style='Action.TButton', width=15).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+        ttk.Button(button_grid, text="🗑️ Supprimer", command=self.delete_selected_records,
+                   style='Action.TButton', width=15).grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
+
+        # Row 2: Status operations
+        ttk.Button(button_grid, text="✅ Marquer Traité",
+                   command=lambda: self.mark_selected_records(ProcessedStatus.PROCESSED),
+                   style='Action.TButton', width=15).grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        ttk.Button(button_grid, text="⏳ Marquer Non Traité",
+                   command=lambda: self.mark_selected_records(ProcessedStatus.UNPROCESSED),
+                   style='Action.TButton', width=15).grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
+        ttk.Button(button_grid, text="⚠️ Voir Erreurs", command=self.view_errors,
+                   style='Action.TButton', width=15).grid(row=1, column=2, padx=5, pady=5, sticky=tk.W)
+
+        # ===== RIGHT PANEL: SYSTEM OPERATIONS =====
+        # System operations card
+        system_card = ttk.LabelFrame(right_panel, text="Opérations Système", style='Card.TLabelframe')
+        system_card.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # System buttons container with padding
+        system_buttons = ttk.Frame(system_card, style='Card.TFrame', padding=10)
+        system_buttons.pack(fill=tk.BOTH, expand=True)
+
+        # Sync button prominently displayed and centered
+        sync_btn_container = ttk.Frame(system_buttons, style='Card.TFrame')
+        sync_btn_container.pack(fill=tk.BOTH, expand=True, pady=10)
+
+        sync_btn = ttk.Button(sync_btn_container, text="🔄 SYNCHRONISER",
+                              command=self.synchronize_records,
                               style='Sync.TButton')
-        sync_btn.pack(side=tk.RIGHT, padx=5, pady=5)
+        sync_btn.pack(expand=True, fill=tk.BOTH, ipady=10)
+
+        # Additional system actions could go here
+        actions_frame = ttk.Frame(system_buttons, style='Card.TFrame')
+        actions_frame.pack(fill=tk.X, expand=True)
+
+        ttk.Button(actions_frame, text="📊 Exporter",
+                   command=lambda: messagebox.showinfo("Info", "Fonctionnalité à venir", parent=self.root),
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5, expand=True, fill=tk.X)
+        ttk.Button(actions_frame, text="🔍 Recherche Avancée",
+                   command=lambda: messagebox.showinfo("Info", "Fonctionnalité à venir", parent=self.root),
+                   style='Action.TButton').pack(side=tk.LEFT, padx=5, pady=5, expand=True, fill=tk.X)
 
     def show(self):
         """Display the records window as a modal dialog."""
@@ -331,7 +437,7 @@ class RecordsInterface:
 
         # Create the Treeview
         columns = ("id", "username", "timestamp", "punch_type", "processed")
-        self.tree = ttk.Treeview(tree_container, columns=columns, show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(tree_container, columns=columns, show="headings", selectmode="extended")
 
         # Define headings
         self.tree.heading("id", text="ID", command=lambda: self.sort_treeview("id"))
@@ -402,19 +508,26 @@ class RecordsInterface:
     def create_context_menu(self):
         """Create a right-click context menu for the treeview."""
         self.context_menu = tk.Menu(self.tree, tearoff=0)
+
+        # Single record options
         self.context_menu.add_command(label="Modifier l'Enregistrement", command=self.update_record)
-        self.context_menu.add_command(label="Supprimer l'Enregistrement", command=self.delete_record)
         self.context_menu.add_command(label="Voir les Erreurs", command=self.view_errors)
         self.context_menu.add_separator()
-        self.context_menu.add_command(label="Marquer comme Traité",
-                                      command=lambda: self.toggle_processed_status(ProcessedStatus.PROCESSED))
-        self.context_menu.add_command(label="Marquer comme Non Traité",
-                                      command=lambda: self.toggle_processed_status(ProcessedStatus.UNPROCESSED))
-        self.context_menu.add_command(label="Marquer comme Erreur",
-                                      command=lambda: self.toggle_processed_status(ProcessedStatus.ERROR))
+
+        # Multiple records options
+        self.context_menu.add_command(label="Supprimer les Enregistrements Sélectionnés",
+                                      command=self.delete_selected_records)
+        self.context_menu.add_separator()
+
+        # Status change submenu
+        status_menu = tk.Menu(self.context_menu, tearoff=0)
+        status_menu.add_command(label="Marquer comme Traité",
+                                command=lambda: self.mark_selected_records(ProcessedStatus.PROCESSED))
+        status_menu.add_command(label="Marquer comme Non Traité",
+                                command=lambda: self.mark_selected_records(ProcessedStatus.UNPROCESSED))
+        self.context_menu.add_cascade(label="Changer le Statut", menu=status_menu)
 
         self.tree.bind("<Button-3>", self.show_context_menu)
-        # Double-click to view errors if record has error status
         self.tree.bind("<Double-1>", self.on_double_click)
 
     def show_context_menu(self, event):
@@ -965,34 +1078,86 @@ class RecordsInterface:
         ttk.Button(button_frame, text="Enregistrer les Modifications", command=submit,
                    style='Action.TButton').pack(side=tk.RIGHT, padx=5)
 
-    def delete_record(self):
-        """Delete the selected attendance record."""
+    def delete_selected_records(self):
+        """Delete multiple selected attendance records."""
         if not self.attendance_repository:
             self.show_error("Référentiel d'enregistrements non disponible")
             return
 
-        selected_item = self.tree.selection()
-        if not selected_item:
-            self.show_error("Veuillez sélectionner un enregistrement à supprimer.")
+        selected_items = self.tree.selection()
+        if not selected_items:
+            self.show_error("Veuillez sélectionner au moins un enregistrement à supprimer.")
             return
 
         # Confirm deletion
-        if not messagebox.askyesno("Confirmer la Suppression",
-                                   "Êtes-vous sûr de vouloir supprimer l'enregistrement sélectionné?",
+        count = len(selected_items)
+        if not messagebox.askyesno("Confirmer la Suppression Multiple",
+                                   f"Êtes-vous sûr de vouloir supprimer les {count} enregistrements sélectionnés?",
                                    parent=self.root):
             return
 
-        record_values = self.tree.item(selected_item, "values")
-        record_id = int(record_values[0])
+        # Extract record IDs from selected items
+        record_ids = []
+        for item in selected_items:
+            record_values = self.tree.item(item, "values")
+            record_id = int(record_values[0])
+            record_ids.append(record_id)
 
         try:
-            # Delete the record
-            self.attendance_repository.delete_record(record_id)
-            self.show_success("Enregistrement supprimé avec succès.")
+            # Delete the records
+            self.attendance_repository.delete_records(record_ids)
+            self.show_success(f"{count} enregistrements supprimés avec succès.")
             self.load_records()
             self.display_records()
         except Exception as e:
-            self.handle_error("Erreur lors de la suppression de l'enregistrement", e)
+            self.handle_error("Erreur lors de la suppression des enregistrements", e)
+
+    def mark_selected_records(self, status):
+        """Mark multiple selected records with the specified status."""
+        if not self.attendance_repository:
+            self.show_error("Référentiel d'enregistrements non disponible")
+            return
+
+        selected_items = self.tree.selection()
+        if not selected_items:
+            self.show_error("Veuillez sélectionner au moins un enregistrement à modifier.")
+            return
+
+        # Get status display name for messages
+        status_map = {
+            ProcessedStatus.PROCESSED: "Traité",
+            ProcessedStatus.UNPROCESSED: "Non Traité",
+            ProcessedStatus.ERROR: "Erreur"
+        }
+        status_display = status_map.get(status, status)
+
+        # Confirm action
+        count = len(selected_items)
+        if not messagebox.askyesno("Confirmer le Changement de Statut",
+                                   f"Êtes-vous sûr de vouloir marquer {count} enregistrements comme '{status_display}'?",
+                                   parent=self.root):
+            return
+
+        # If marking as ERROR, we need to handle error details
+        if status == ProcessedStatus.ERROR:
+            self.show_error("Pour marquer comme erreur, veuillez modifier les enregistrements individuellement.")
+            return
+
+        # Extract record IDs from selected items
+        record_ids = []
+        for item in selected_items:
+            record_values = self.tree.item(item, "values")
+            record_id = int(record_values[0])
+            record_ids.append(record_id)
+
+        try:
+            # Update the records status
+            self.attendance_repository.mark_records_by_ids(record_ids, status)
+            self.show_success(f"{count} enregistrements marqués comme '{status_display}' avec succès.")
+            self.load_records()
+            self.display_records()
+        except Exception as e:
+            self.handle_error(f"Erreur lors de la modification du statut des enregistrements", e)
 
     def synchronize_records(self):
         """Synchronize attendance records with the API."""

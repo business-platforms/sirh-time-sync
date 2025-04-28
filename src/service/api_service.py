@@ -236,7 +236,7 @@ class APIService:
             logger.error(f"Error retrieving pointing import data: {e}")
             return {}
 
-    def get_pointing_import_lines(self, page: int = 0, size: int = 10000) -> List[Dict[str, Any]]:
+    def get_pointing_import_lines(self, job_id: int = None, page: int = 0, size: int = 10000) -> List[Dict[str, Any]]:
         """Get pointing import lines (typically error records)."""
         if not self._company_id:
             if not self.initialize():
@@ -250,8 +250,12 @@ class APIService:
                 'size': size
             }
 
+            url = f"{self.api_url}/pay/api/companies/{self._company_id}/pointing-imports/lines"
+            if job_id:
+                url = f"{self.api_url}/pay/api/companies/{self._company_id}/pointing-imports/{job_id}/lines"
+
             response = self.session.get(
-                f"{self.api_url}/pay/api/companies/{self._company_id}/pointing-imports/lines",
+                url,
                 headers=headers,
                 params=params
             )

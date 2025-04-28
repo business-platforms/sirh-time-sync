@@ -55,7 +55,7 @@ class ConfigInterface:
 
         # Configure window basics
         self.root.title("Configuration du Système de Présence")
-        self.root.geometry("800x750")
+        self.root.geometry("900x750")
         self.root.minsize(850, 800)
         self.root.withdraw()  # Hide window during setup
 

@@ -53,7 +53,7 @@ class UsersInterface:
 
         # Configure window basics
         self.root.title("Gestion des Utilisateurs")
-        self.root.geometry("850x700")
+        self.root.geometry("1400x700")
         self.root.minsize(850, 700)
         self.root.withdraw()  # Hide window during setup
 
@@ -88,6 +88,10 @@ class UsersInterface:
         style.configure('TFrame', background=self.COLOR_BACKGROUND)
         style.configure('Header.TFrame', background=self.COLOR_PRIMARY)
         style.configure('Card.TFrame', background=self.COLOR_CARD, relief='flat', borderwidth=0)
+
+        # Add LabelFrame style
+        style.configure('TLabelframe', background=self.COLOR_BACKGROUND)
+        style.configure('TLabelframe.Label', background=self.COLOR_BACKGROUND, font=('Segoe UI', 9, 'bold'))
 
         style.configure('TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 10))
         style.configure('Card.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 10))
@@ -164,41 +168,72 @@ class UsersInterface:
         button_frame = ttk.Frame(parent, style='TFrame')
         button_frame.pack(fill=tk.X, pady=(10, 5))
 
+        # Create three separate frames for button groups
+        left_frame = ttk.Frame(button_frame, style='TFrame')
+        left_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        middle_frame = ttk.Frame(button_frame, style='TFrame')
+        middle_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        right_frame = ttk.Frame(button_frame, style='TFrame')
+        right_frame.pack(side=tk.RIGHT, fill=tk.X, padx=(0, 10))
+
+        # Data operations group (left)
+        data_frame = ttk.LabelFrame(left_frame, text="Opérations de données", style='TFrame')
+        data_frame.pack(side=tk.LEFT, padx=(10, 5), pady=5)
+
         # Import Users button
         self.import_button = ttk.Button(
-            button_frame,
+            data_frame,
             text="📥 Importer des Utilisateurs",
             command=self.import_users,
             style='Action.TButton'
         )
-        self.import_button.pack(side=tk.LEFT, padx=5)
+        self.import_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Refresh button
         refresh_button = ttk.Button(
-            button_frame,
+            data_frame,
             text="🔄 Actualiser la Liste",
             command=self.refresh_data,
             style='Action.TButton'
         )
-        refresh_button.pack(side=tk.LEFT, padx=5)
+        refresh_button.pack(side=tk.LEFT, padx=5, pady=5)
 
-        # Select All button - ADD THIS NEW BUTTON
+        # Selection operations group (middle)
+        selection_frame = ttk.LabelFrame(middle_frame, text="Sélection", style='TFrame')
+        selection_frame.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Select All button
         select_all_button = ttk.Button(
-            button_frame,
+            selection_frame,
             text="✓ Tout Sélectionner",
             command=self.select_all_users,
             style='Action.TButton'
         )
-        select_all_button.pack(side=tk.LEFT, padx=5)
+        select_all_button.pack(side=tk.LEFT, padx=5, pady=5)
 
-        # Delete User button - renamed to reflect multi-selection capability
+        # Add a Deselect All button for better user experience
+        deselect_all_button = ttk.Button(
+            selection_frame,
+            text="✗ Tout Désélectionner",
+            command=self.deselect_all_users,  # Need to add this method
+            style='Action.TButton'
+        )
+        deselect_all_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Destructive operations group (right)
+        delete_frame = ttk.LabelFrame(right_frame, text="Actions", style='TFrame')
+        delete_frame.pack(side=tk.RIGHT, padx=5, pady=5)
+
+        # Delete User button
         self.delete_button = ttk.Button(
-            button_frame,
+            delete_frame,
             text="🗑️ Supprimer Utilisateur(s)",
             command=self.delete_users,
             style='Delete.TButton'
         )
-        self.delete_button.pack(side=tk.LEFT, padx=5)
+        self.delete_button.pack(side=tk.LEFT, padx=5, pady=5)
 
     def resource_path(self, relative_path):
         """Get absolute path to resource, works for dev and for PyInstaller."""
@@ -452,6 +487,15 @@ class UsersInterface:
         if items_count > 0:
             self.status_var.set(f"{items_count} utilisateurs sélectionnés")
             self.status_label.config(style='Neutral.TLabel')
+
+    def deselect_all_users(self):
+        """Deselect all users in the treeview."""
+        # Clear current selection
+        self.tree.selection_remove(self.tree.selection())
+
+        # Update status
+        self.status_var.set("Sélection effacée")
+        self.status_label.config(style='Neutral.TLabel')
 
     def show_error(self, message: str):
         """Show an error message dialog and update status bar."""

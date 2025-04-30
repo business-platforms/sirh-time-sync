@@ -54,7 +54,7 @@ class RecordsInterface:
 
         # Configure window basics
         self.root.title("Enregistrements de Présence")
-        self.root.geometry("1500x800")
+        self.root.geometry("1300x600")
         self.root.minsize(1000, 700)
         self.root.withdraw()  # Hide window during setup
 

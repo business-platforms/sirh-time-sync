@@ -116,47 +116,56 @@ class APIService:
 
     def upload_attendance(self, file_path: str) -> Dict[str, Any]:
         """Upload attendance data from an Excel file to the API."""
+        logger.info(f"Starting upload_attendance for file: {file_path}")
+
         if not self.initialize():
+            logger.error("[UPLOAD] API service initialization failed")
             return {'success': False, 'message': 'Failed to initialize API service'}
 
         try:
+            logger.debug("[UPLOAD] Retrieving authentication headers")
             headers = self.get_auth_headers()
-            # Remove Content-Type as it will be set by requests for multipart/form-data
             headers.pop('Content-Type', None)
+            logger.debug(f"[UPLOAD] Auth headers prepared (without Content-Type): {headers}")
 
             with open(file_path, 'rb') as file:
+                file_name = file_path.split('/')[-1]
+                logger.info(f"Opened file: {file_name}")
                 files = {
-                    'file': (file_path.split('/')[-1], file,
+                    'file': (file_name, file,
                              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                 }
 
                 month = datetime.now().strftime("%Y-%m")
-                response = self.session.post(
-                    f"{self.api_url}/pay/api/companies/{self._company_id}/month-pointing/{month}/import",
-                    headers=headers,
-                    files=files
-                )
+                url = f"{self.api_url}/pay/api/companies/{self._company_id}/month-pointing/{month}/import"
+                logger.info(f"[UPLOAD] Sending POST request to URL: {url}")
+                response = self.session.post(url, headers=headers, files=files)
+
+            logger.info(f"[UPLOAD] Received response with status code: {response.status_code}")
 
             if response.status_code == 200:
                 response_data = response.json()
                 job_execution_id = response_data.get("jobExecutionId")
-                logger.info(f"Job execution started with ID: {job_execution_id}")
+                logger.info(f"[UPLOAD] Job execution started with ID: {job_execution_id}")
                 return {'success': True, 'jobExecutionId': job_execution_id}
             elif response.status_code == 401:
-                # Token might be expired, try to re-authenticate
-                logger.warning("Authentication token expired, attempting to re-authenticate")
+                logger.warning("[UPLOAD] Authentication token expired, attempting to re-authenticate")
                 if self.authenticate():
-                    # Retry with new token
+                    logger.info("[UPLOAD] Re-authentication successful, retrying upload")
                     return self.upload_attendance(file_path)
                 else:
+                    logger.error("[UPLOAD] Re-authentication failed")
                     return {'success': False, 'message': 'Re-authentication failed'}
             else:
-                logger.error(f"API upload failed: {response.status_code}")
-                logger.debug(f"Response: {response.text}")
+                logger.error(f"[UPLOAD] API upload failed: {response.status_code}")
+                logger.debug(f"[UPLOAD] Response body: {response.text}")
                 return {'success': False, 'message': f'API Error: {response.text}'}
 
+        except FileNotFoundError:
+            logger.exception(f"[UPLOAD] File not found: {file_path}")
+            return {'success': False, 'message': f"File not found: {file_path}"}
         except Exception as e:
-            logger.error(f"Error uploading attendance data: {e}")
+            logger.exception(f"[UPLOAD] Error uploading attendance data: {e}")
             return {'success': False, 'message': str(e)}
 
     def get_employees(self, page=0, size=5000, sort="id,asc") -> List[Dict[str, Any]]:

@@ -116,7 +116,7 @@ class SyncService:
         """Process the upload job and update record statuses."""
         try:
             # Wait for job completion with timeout
-            end_time = datetime.now() + timedelta(seconds=30)
+            end_time = datetime.now() + timedelta(seconds=90)
             processed_count = 0
 
             while datetime.now() < end_time:

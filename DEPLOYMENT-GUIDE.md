@@ -57,8 +57,8 @@ Before building the application, ensure you have the following installed:
 2. **Locate the installer**
    
    After a successful build, the installer will be available at:
-   - `installer/TimeAttendanceSystem-Setup-{version}.exe`
-   - `installer/TimeAttendanceSystem-Setup-latest.exe` (copy of the latest version)
+   - `installer/timesync-setup{version}.exe`
+   - `installer/timesync-setuplatest.exe` (copy of the latest version)
 
 ### Option 2: Manual Build Process
 
@@ -76,11 +76,11 @@ If you need more control over the build process, you can execute each step manua
 
 3. **Edit the Inno Setup script if needed**
    
-   Open `TimeAttendanceSystem-Installer.iss` and update any parameters like the version number.
+   Open `timesync-Installer.iss` and update any parameters like the version number.
 
 4. **Run Inno Setup Compiler**
    ```bash
-   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" TimeAttendanceSystem-Installer.iss
+   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" timesync-Installer.iss
    ```
 
 5. **Locate the installer in the `installer` directory**
@@ -100,7 +100,7 @@ Before distributing, configure the update server URL in `src/application.py`:
 
 ### Installer Customization
 
-To customize the installer appearance and behavior, edit the `TimeAttendanceSystem-Installer.iss` file. You can modify:
+To customize the installer appearance and behavior, edit the `timesync-Installer.iss` file. You can modify:
 
 - Company information
 - License agreements
@@ -120,7 +120,7 @@ The generated `.exe` installer is the primary deployment method. End-users simpl
 For automated deployments, the installer supports silent installation:
 
 ```
-TimeAttendanceSystem-Setup-1.0.0.exe /VERYSILENT /NORESTART
+timesync-setup1.0.0.exe /VERYSILENT /NORESTART
 ```
 
 ### Update Server Setup
@@ -133,7 +133,7 @@ To enable automatic updates:
    {
      "update_available": true,
      "version": "1.0.1",
-     "download_url": "https://your-server.com/downloads/TimeAttendanceSystem-Setup-1.0.1.exe",
+     "download_url": "https://your-server.com/downloads/timesync-setup1.0.1.exe",
      "notes": "Bug fixes and performance improvements"
    }
    ```

@@ -26,7 +26,7 @@ def main():
 
     # Run Inno Setup
     print("Running Inno Setup...")
-    inno_script = os.path.abspath("TimeAttendanceSystem-Installer.iss")
+    inno_script = os.path.abspath("timesync-Installer.iss")
 
     # Update version in Inno Setup script
     with open(inno_script, "r") as f:
@@ -52,8 +52,8 @@ def main():
     subprocess.check_call([iscc_path, inno_script])
 
     # Copy installer to versioned file and latest version
-    installer_path = os.path.join("installer", f"TimeAttendanceSystem-Setup-{version}.exe")
-    latest_path = os.path.join("installer", "TimeAttendanceSystem-Setup-latest.exe")
+    installer_path = os.path.join("installer", f"timesync-setup{version}.exe")
+    latest_path = os.path.join("installer", "timesync-setuplatest.exe")
 
     if os.path.exists(installer_path):
         shutil.copy2(installer_path, latest_path)

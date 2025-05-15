@@ -1,10 +1,10 @@
-; TimeAttendanceSystem-Installer.iss
+; timesync-Installer.iss
 #define AppName "Time Attendance System"
 #define AppVersion "1.0.0"
 #define AppPublisher "Business Platforms"
 #define AppURL "https://www.yourcompany.com"
-#define AppExeName "TimeAttendanceSystem.exe"
-#define AppDataFolder "TimeAttendanceSystem"
+#define AppExeName "timesync.exe"
+#define AppDataFolder "timesync"
 [Setup]
 AppId={{5DAB2F70-8AC3-45C4-AE39-9F06BE1B4D5F}
 AppName={#AppName}
@@ -18,7 +18,7 @@ DefaultDirName={commonpf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=installer
-OutputBaseFilename=TimeAttendanceSystem-Setup-{#AppVersion}
+OutputBaseFilename=timesync-setup{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 PrivilegesRequired=admin
@@ -35,7 +35,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startupicon"; Description: "Start the application when Windows starts"; GroupDescription: "Windows Startup"
 [Files]
 ; Main executable
-Source: "dist\TimeAttendanceSystem.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\timesync.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "assets\timesync-logo.ico"; DestDir: "{app}"; Flags: ignoreversion
 [Dirs]
 Name: "{app}\logs"; Permissions: users-modify

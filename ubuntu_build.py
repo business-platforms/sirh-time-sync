@@ -36,7 +36,7 @@ def main():
 
     pyinstaller_args = [
         "main.py",
-        "--name=TimeAttendanceSystem",
+        "--name=timesync",
         "--onefile",
         "--windowed",
         "--add-data=assets:assets",
@@ -70,12 +70,12 @@ Version={version}
 Type=Application
 Name=Time Attendance System
 Comment=Time attendance tracking and synchronization
-Exec=/opt/timeattendancesystem/TimeAttendanceSystem
-Icon=/opt/timeattendancesystem/assets/timesync-logo.png
+Exec=/opt/timesync/timesync
+Icon=/opt/timesync/assets/timesync-logo.png
 Terminal=false
 Categories=Office;Utility;
 """
-    with open("installer_files/timeattendancesystem.desktop", "w") as f:
+    with open("installer_files/timesync.desktop", "w") as f:
         f.write(desktop_file)
 
     # Create install script
@@ -87,10 +87,10 @@ Categories=Office;Utility;
 set -e
 
 # Define constants
-APP_NAME="TimeAttendanceSystem"
-INSTALL_DIR="/opt/timeattendancesystem"
-BIN_LINK="/usr/local/bin/timeattendancesystem"
-DESKTOP_FILE="/usr/share/applications/timeattendancesystem.desktop"
+APP_NAME="timesync"
+INSTALL_DIR="/opt/timesync"
+BIN_LINK="/usr/local/bin/timesync"
+DESKTOP_FILE="/usr/share/applications/timesync.desktop"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -113,11 +113,11 @@ chmod +x "$INSTALL_DIR/$APP_NAME"
 ln -sf "$INSTALL_DIR/$APP_NAME" "$BIN_LINK"
 
 # Install desktop file
-cp "./timeattendancesystem.desktop" "$DESKTOP_FILE"
+cp "./timesync.desktop" "$DESKTOP_FILE"
 update-desktop-database /usr/share/applications
 
 echo "Installation completed successfully!"
-echo "You can now launch the application from your applications menu or run 'timeattendancesystem' from terminal."
+echo "You can now launch the application from your applications menu or run 'timesync' from terminal."
 """
     with open("installer_files/install.sh", "w") as f:
         f.write(install_script)
@@ -127,17 +127,17 @@ echo "You can now launch the application from your applications menu or run 'tim
 
     # Create package structure
     print("Creating package structure...")
-    package_dir = f"TimeAttendanceSystem-{version}-Ubuntu"
+    package_dir = f"timesync-{version}-Ubuntu"
     os.makedirs(package_dir, exist_ok=True)
 
     # Copy executable and assets to package
-    shutil.copy("dist/TimeAttendanceSystem", package_dir)
+    shutil.copy("dist/timesync", package_dir)
     shutil.copytree("assets", f"{package_dir}/assets")
     shutil.copytree("dist/logs", f"{package_dir}/logs")
     shutil.copytree("dist/exports", f"{package_dir}/exports")
     shutil.copytree("dist/backup", f"{package_dir}/backup")
     shutil.copy("installer_files/install.sh", package_dir)
-    shutil.copy("installer_files/timeattendancesystem.desktop", package_dir)
+    shutil.copy("installer_files/timesync.desktop", package_dir)
     shutil.copy("version.txt", package_dir)
 
     # Create README for Ubuntu
@@ -151,9 +151,9 @@ Installation:
 
 After installation, you can:
 - Launch from your applications menu
-- Run from terminal: timeattendancesystem
+- Run from terminal: timesync
 
-The application will store data in ~/.config/TimeAttendanceSystem/
+The application will store data in ~/.config/timesync/
 """)
 
     # Create tarball

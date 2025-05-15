@@ -37,7 +37,7 @@ os.makedirs("src/util", exist_ok=True)
 # Define PyInstaller arguments
 args = [
     "main.py",  # Your main script
-    "--name=TimeAttendanceSystem",  # Name of the application
+    "--name=timesync",  # Name of the application
     "--onefile",  # Create a single executable file
     "--windowed",  # Don't show console window
     "--add-data=assets;assets",  # Add assets directory
@@ -75,5 +75,5 @@ os.makedirs("dist/backup", exist_ok=True)
 # We no longer create a placeholder database in the dist directory
 # since our database will now be stored in the user's AppData folder
 
-print(f"Build completed: TimeAttendanceSystem v{VERSION}")
+print(f"Build completed: timesync v{VERSION}")
 print("Note: Database will be stored in user's AppData folder for persistence")

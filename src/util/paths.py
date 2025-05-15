@@ -10,14 +10,14 @@ def get_persistent_data_path():
         if os.name == 'nt':  # Windows
             app_data = os.environ.get('APPDATA')
             if app_data:
-                data_dir = os.path.join(app_data, "TimeAttendanceSystem")
+                data_dir = os.path.join(app_data, "timesync")
             else:
                 # Fallback to directory containing exe
                 data_dir = os.path.join(os.path.dirname(sys.executable), "data")
         else:
             # For Linux
             home = os.path.expanduser("~")
-            data_dir = os.path.join(home, ".config", "TimeAttendanceSystem")
+            data_dir = os.path.join(home, ".config", "timesync")
     else:
         # When running from source, use the project directory
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -6,7 +6,7 @@ def get_persistent_data_path():
     """Get a persistent path for application data."""
     # If running as PyInstaller bundle
     if getattr(sys, 'frozen', False):
-        # When running as compiled exe, use the directory containing the exe
+        # When running as compiled exe
         if os.name == 'nt':  # Windows
             app_data = os.environ.get('APPDATA')
             if app_data:
@@ -15,9 +15,9 @@ def get_persistent_data_path():
                 # Fallback to directory containing exe
                 data_dir = os.path.join(os.path.dirname(sys.executable), "data")
         else:
-            # For macOS/Linux
+            # For Linux
             home = os.path.expanduser("~")
-            data_dir = os.path.join(home, ".timeattendancesystem")
+            data_dir = os.path.join(home, ".config", "TimeAttendanceSystem")
     else:
         # When running from source, use the project directory
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

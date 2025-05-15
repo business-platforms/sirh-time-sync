@@ -52,8 +52,8 @@ def main():
     subprocess.check_call([iscc_path, inno_script])
 
     # Copy installer to versioned file and latest version
-    installer_path = os.path.join("installer", f"timesync-setup{version}.exe")
-    latest_path = os.path.join("installer", "timesync-setuplatest.exe")
+    installer_path = os.path.join("installer", f"timesync-setup-{version}.exe")
+    latest_path = os.path.join("installer", "timesync-setup-latest.exe")
 
     if os.path.exists(installer_path):
         shutil.copy2(installer_path, latest_path)

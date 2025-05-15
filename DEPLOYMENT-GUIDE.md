@@ -57,8 +57,8 @@ Before building the application, ensure you have the following installed:
 2. **Locate the installer**
    
    After a successful build, the installer will be available at:
-   - `installer/timesync-setup{version}.exe`
-   - `installer/timesync-setuplatest.exe` (copy of the latest version)
+   - `installer/timesync-setup-{version}.exe`
+   - `installer/timesync-setup-latest.exe` (copy of the latest version)
 
 ### Option 2: Manual Build Process
 
@@ -120,7 +120,7 @@ The generated `.exe` installer is the primary deployment method. End-users simpl
 For automated deployments, the installer supports silent installation:
 
 ```
-timesync-setup1.0.0.exe /VERYSILENT /NORESTART
+timesync-setup-1.0.0.exe /VERYSILENT /NORESTART
 ```
 
 ### Update Server Setup
@@ -133,7 +133,7 @@ To enable automatic updates:
    {
      "update_available": true,
      "version": "1.0.1",
-     "download_url": "https://your-server.com/downloads/timesync-setup1.0.1.exe",
+     "download_url": "https://your-server.com/downloads/timesync-setup-1.0.1.exe",
      "notes": "Bug fixes and performance improvements"
    }
    ```

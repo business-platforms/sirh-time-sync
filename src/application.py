@@ -256,7 +256,46 @@ class Application:
         # Run in background thread
         threading.Thread(target=_check, daemon=True).start()
 
-    # In src/application.py
+    def check_for_mandatory_updates(self, parent_window=None) -> bool:
+        """
+        Check for updates and require the user to update if available.
+        Returns True if no update is needed or update was successful.
+        Returns False if update was available but not applied.
+        """
+        result = self.update_checker.check_for_updates()
+
+        if result.get("available", False):
+            # Create or use the provided parent window for the dialog
+            if not parent_window:
+                temp_window = tk.Tk()
+                temp_window.withdraw()
+            else:
+                temp_window = parent_window
+
+            # Show mandatory update dialog
+            message = (
+                f"Une mise à jour importante (version {result['version']}) est disponible.\n\n"
+                f"Vous devez installer cette mise à jour pour continuer.\n\n"
+                f"Notes de version :\n{result['notes']}"
+            )
+
+            update_choice = tk.messagebox.askquestion(
+                "Mise à jour obligatoire",
+                message,
+                icon='warning'
+            )
+
+            if update_choice == 'yes':
+                # Start update process
+                return self.apply_mandatory_update(result["url"])
+            else:
+                # User declined update, exit application
+                if not parent_window:
+                    temp_window.destroy()
+                return False
+
+        return True  # No update available or update not required
+
     def apply_update(self, url):
         """Download and apply the update with progress reporting."""
 
@@ -335,6 +374,82 @@ class Application:
                     "Échec de la mise à jour",
                     "Échec du téléchargement de la mise à jour. Veuillez réessayer plus tard."
                 )
-
         # Run in background thread
         threading.Thread(target=_update, daemon=True).start()
+
+    def apply_mandatory_update(self, url):
+        """Download and apply a mandatory update with progress reporting."""
+        # Create progress window
+        progress_window = tk.Tk()
+        progress_window.title("Mise à jour obligatoire en cours")
+        progress_window.geometry("450x180")
+        progress_window.resizable(False, False)
+        progress_window.protocol("WM_DELETE_WINDOW", lambda: None)  # Prevent closing
+
+        # Center the window
+        progress_window.update_idletasks()
+        width = progress_window.winfo_width()
+        height = progress_window.winfo_height()
+        x = (progress_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (progress_window.winfo_screenheight() // 2) - (height // 2)
+        progress_window.geometry(f"{width}x{height}+{x}+{y}")
+
+        # Status label
+        status_label = tk.Label(
+            progress_window,
+            text="Téléchargement de la mise à jour...",
+            font=("Segoe UI", 10),
+            pady=10
+        )
+        status_label.pack()
+
+        # Progress bar
+        progress_bar = ttk.Progressbar(
+            progress_window,
+            orient="horizontal",
+            length=400,
+            mode="determinate"
+        )
+        progress_bar.pack(pady=10, padx=20)
+
+        # Progress percentage
+        percent_label = tk.Label(
+            progress_window,
+            text="0%",
+            font=("Segoe UI", 9)
+        )
+        percent_label.pack()
+
+        # Progress callback
+        def update_progress(percent):
+            progress_bar["value"] = percent
+            percent_label.config(text=f"{percent}%")
+            progress_window.update()
+
+        # Download update
+        installer_path = self.update_checker.download_update(url, update_progress)
+
+        if installer_path:
+            # Update UI for installation phase
+            status_label.config(text="Installation en cours...")
+            progress_bar.config(mode="indeterminate")
+            progress_bar.start()
+            percent_label.config(text="L'application redémarrera automatiquement.")
+            progress_window.update()
+
+            # Stop services before updating
+            self.stop_service()
+
+            # Apply update
+            self.update_checker.apply_update(installer_path)
+
+            # Exit application to allow installer to run
+            import sys
+            sys.exit(0)
+        else:
+            progress_window.destroy()
+            tk.messagebox.showerror(
+                "Échec de la mise à jour",
+                "Échec du téléchargement de la mise à jour. L'application va se fermer."
+            )
+            return False

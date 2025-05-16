@@ -977,6 +977,11 @@ class MainWindow:
 
     def start(self):
         """Start the main window."""
+        # Check for mandatory updates before showing UI
+        if not self.app.check_for_mandatory_updates(self.root):
+            self.root.destroy()
+            return
+
         self.setup_ui()
         self.root.mainloop()
 

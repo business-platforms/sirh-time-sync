@@ -16,6 +16,14 @@ def main():
     # Create the application
     app = Application()
 
+    # Check for mandatory updates before proceeding
+    # Skip update check only for --stop command which should work regardless
+    if not args.stop:
+        if not app.check_for_mandatory_updates():
+            print("Update required but not applied. Exiting.")
+            return 1
+
+    # Continue with normal application flow
     if args.config:
         # Run only the configuration window
         from src.ui.config_interface import ConfigInterface

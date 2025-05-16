@@ -66,26 +66,42 @@ class UpdateChecker:
             logger.error(f"Error checking for updates: {e}")
             return {"available": False}
 
-    def download_update(self, url: str) -> Optional[str]:
-        """Download update file to temporary location."""
+    def download_update(self, url: str, progress_callback=None) -> Optional[str]:
+        """Download update file to temporary location with progress reporting."""
         try:
-            response = requests.get(url, stream=True, timeout=30)
+            # Start download with streaming
+            response = requests.get(url, stream=True, timeout=60)
             if response.status_code != 200:
                 logger.error(f"Failed to download update: {response.status_code}")
                 return None
+
+            # Get total size
+            total_size = int(response.headers.get('content-length', 0))
 
             # Create temp file with .exe extension
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.exe')
             temp_file.close()
 
-            # Download file
+            # Download with progress updates
+            downloaded = 0
             with open(temp_file.name, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if progress_callback and total_size > 0:
+                            progress = int(downloaded * 100 / total_size)
+                            progress_callback(progress)
 
             logger.info(f"Downloaded update to {temp_file.name}")
             return temp_file.name
 
+        except requests.exceptions.Timeout:
+            logger.error("Download timed out. Network connection may be slow.")
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.error("Connection error. Unable to reach update server.")
+            return None
         except Exception as e:
             logger.error(f"Error downloading update: {e}")
             return None
@@ -99,25 +115,25 @@ class UpdateChecker:
             else:
                 app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-            # Get the current database path (now in AppData)
-            db_path = get_database_path()
-
-            # Create backup directory in application folder
-            backup_dir = os.path.join(app_dir, "backup")
-            os.makedirs(backup_dir, exist_ok=True)
-
-            # Backup database if it exists
-            if os.path.exists(db_path):
-                backup_name = f"attendance.db_backup_{self.current_version}"
-                backup_path = os.path.join(backup_dir, backup_name)
-
-                try:
-                    shutil.copy2(db_path, backup_path)
-                    logger.info(f"Database backed up from {db_path} to {backup_path}")
-                except Exception as backup_error:
-                    logger.error(f"Failed to backup database: {backup_error}")
-            else:
-                logger.warning(f"Database not found at {db_path}, no backup created")
+            # # Get the current database path (now in AppData)
+            # db_path = get_database_path()
+            #
+            # # Create backup directory in application folder
+            # backup_dir = os.path.join(app_dir, "backup")
+            # os.makedirs(backup_dir, exist_ok=True)
+            #
+            # # Backup database if it exists
+            # if os.path.exists(db_path):
+            #     backup_name = f"attendance.db_backup_{self.current_version}"
+            #     backup_path = os.path.join(backup_dir, backup_name)
+            #
+            #     try:
+            #         shutil.copy2(db_path, backup_path)
+            #         logger.info(f"Database backed up from {db_path} to {backup_path}")
+            #     except Exception as backup_error:
+            #         logger.error(f"Failed to backup database: {backup_error}")
+            # else:
+            #     logger.warning(f"Database not found at {db_path}, no backup created")
 
             # Run installer silently
             subprocess.Popen([

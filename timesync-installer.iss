@@ -1,150 +1,146 @@
-; timesync-Installer.iss
-#define AppName "Time Attendance System"
+; Time Attendance System - Inno Setup Script
+; This script handles installation, updates, and ensures single installation
+
+#define MyAppName "Time Attendance System"
+#define MyAppPublisher "Your Company"
+#define MyAppURL "https://yourcompany.com"
+#define MyAppExeName "timesync.exe"
 #define AppVersion "1.0.0"
-#define AppPublisher "Business Platforms"
-#define AppURL "https://www.yourcompany.com"
-#define AppExeName "timesync.exe"
-#define AppDataFolder "timesync"
+
 [Setup]
-AppId={{5DAB2F70-8AC3-45C4-AE39-9F06BE1B4D5F}
-AppName={#AppName}
+; Basic application information
+AppId={{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}}
+AppName={#MyAppName}
 AppVersion={#AppVersion}
-AppVerName={#AppName} {#AppVersion}
-AppPublisher={#AppPublisher}
-AppPublisherURL={#AppURL}
-AppSupportURL={#AppURL}
-AppUpdatesURL={#AppURL}
-DefaultDirName={commonpf}\{#AppName}
-DefaultGroupName={#AppName}
+AppVerName={#MyAppName} {#AppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}/support
+AppUpdatesURL={#MyAppURL}/updates
+
+; Installation paths and defaults
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+AllowNoIcons=yes
 DisableProgramGroupPage=yes
 OutputDir=installer
 OutputBaseFilename=timesync-setup-{#AppVersion}
-Compression=lzma2/ultra64
+
+; Compression settings
+Compression=lzma2
 SolidCompression=yes
-PrivilegesRequired=admin
-SetupIconFile=assets\timesync-logo.ico
-UninstallDisplayIcon={app}\{#AppExeName}
+
+; Appearance and behavior
 WizardStyle=modern
-ArchitecturesAllowed=x64
+WizardResizable=no
+SetupIconFile=assets\timesync-logo.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName}
+
+; Windows specific settings
+PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
+
+; Always create new log file
+SetupLogging=yes
+
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
+
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startupicon"; Description: "Start the application when Windows starts"; GroupDescription: "Windows Startup"
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+Name: "startupicon"; Description: "Lancer au démarrage de Windows"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+
 [Files]
-; Main executable
 Source: "dist\timesync.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\timesync-logo.ico"; DestDir: "{app}"; Flags: ignoreversion
-[Dirs]
-Name: "{app}\logs"; Permissions: users-modify
-Name: "{app}\exports"; Permissions: users-modify
-Name: "{app}\backup"; Permissions: users-modify
-; Make sure the AppData directory exists for the database
-Name: "{userappdata}\{#AppDataFolder}"; Permissions: users-modify
+Source: "dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\timesync-logo.ico"
-Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\timesync-logo.ico"; Tasks: desktopicon
-Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\timesync-logo.ico"; Tasks: startupicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon
+Name: "{commonstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startupicon
+
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Clean up files that may be left behind
+Type: files; Name: "{app}\*.log"
+Type: files; Name: "{app}\exports\*.*"
+Type: files; Name: "{app}\logs\*.*"
+Type: dirifempty; Name: "{app}\exports"
+Type: dirifempty; Name: "{app}\logs"
+Type: dirifempty; Name: "{app}"
+
+; Note: We don't delete the database files in AppData as they should be preserved
+
+[Registry]
+; Add registry entries for uninstallation and automatic updates
+Root: HKLM; Subkey: "Software\{#MyAppName}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\{#MyAppName}"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"
+Root: HKLM; Subkey: "Software\{#MyAppName}"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
+
 [Code]
 function InitializeSetup(): Boolean;
+var
+  UninstallString: String;
+  ResultCode: Integer;
 begin
-  // Simply return True - we'll handle database operations during installation
   Result := True;
+
+  // Try to get the uninstaller path of the existing installation
+  if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1',
+                         'UninstallString', UninstallString) or
+     RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1',
+                         'UninstallString', UninstallString) then
+  begin
+    // Previous installation exists - uninstall it silently without prompting
+    if UninstallString <> '' then
+    begin
+      // Add /SILENT to the uninstaller command
+      UninstallString := RemoveQuotes(UninstallString);
+      Exec(UninstallString, '/SILENT /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+      // Wait a moment to ensure uninstall completes
+      Sleep(2000);
+    end;
+  end;
 end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  AppDataDBDir: String;
-  AppDataDBPath: String;
+  AppDataDir: String;
   BackupDir: String;
-  BackupFileName: String;
-  FindRec: TFindRec;
-  LatestBackup: String;
-  CurrentTime: String;
 begin
-  // Handle backup during installation (after directory is selected but before files are copied)
-  if CurStep = ssInstall then
-  begin
-    AppDataDBDir := ExpandConstant('{userappdata}\{#AppDataFolder}');
-    AppDataDBPath := AppDataDBDir + '\attendance.db';
-    // Check if the database exists in AppData
-    if FileExists(AppDataDBPath) then
-    begin
-      // Get installation directory and create backup folder
-      BackupDir := ExpandConstant('{app}\backup');
-      // Create backup directory
-      if not ForceDirectories(BackupDir) then
-      begin
-        MsgBox('Could not create backup directory at: ' + BackupDir, mbError, MB_OK);
-      end
-      else
-      begin
-        // Generate a timestamp-like string for the backup filename
-        CurrentTime := GetDateTimeString('yyyymmdd_hhnnss', '_', '_');
-        if CurrentTime = '' then CurrentTime := 'backup'; // Fallback if function fails
-        // Create backup filename
-        BackupFileName := BackupDir + '\attendance.db_' + CurrentTime;
-        // Backup the database file
-        if FileCopy(AppDataDBPath, BackupFileName, false) then
-        begin
-          Log('Database backed up from ' + AppDataDBPath + ' to ' + BackupFileName);
-        end
-        else
-        begin
-          MsgBox('Failed to backup database file from: ' + AppDataDBPath, mbError, MB_OK);
-        end;
-      end;
-    end;
-  end;
-  // Handle restoration during post-installation
   if CurStep = ssPostInstall then
   begin
-    // Paths for database
-    AppDataDBDir := ExpandConstant('{userappdata}\{#AppDataFolder}');
-    AppDataDBPath := AppDataDBDir + '\attendance.db';
-    BackupDir := ExpandConstant('{app}\backup');
-    // Create AppData directory if it doesn't exist
-    if not ForceDirectories(AppDataDBDir) then
-      MsgBox('Could not create AppData directory: ' + AppDataDBDir, mbError, MB_OK);
-    // Restore database file from backup if needed
-    if DirExists(BackupDir) and not FileExists(AppDataDBPath) then
-    begin
-      // Initialize latest backup tracking
-      LatestBackup := '';
-      // Find any backup file
-      if FindFirst(BackupDir + '\attendance.db_*', FindRec) then
-      begin
-        try
-          // Use the first backup file we find
-          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
-          begin
-            LatestBackup := FindRec.Name;
-          end;
-          // Look through all backup files
-          while FindNext(FindRec) do
-          begin
-            if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
-            begin
-              // Just use the last file we find for simplicity
-              LatestBackup := FindRec.Name;
-            end;
-          end;
-        finally
-          FindClose(FindRec);
-        end;
-      end;
-      // If we found a backup, restore it
-      if LatestBackup <> '' then
-      begin
-        if FileCopy(BackupDir + '\' + LatestBackup, AppDataDBPath, false) then
-          Log('Restored database from ' + LatestBackup + ' to ' + AppDataDBPath)
-        else
-          MsgBox('Could not restore database from backup!', mbError, MB_OK);
-      end;
-    end;
+    // Create required directories
+    if not DirExists(ExpandConstant('{app}\logs')) then
+      CreateDir(ExpandConstant('{app}\logs'));
+
+    if not DirExists(ExpandConstant('{app}\exports')) then
+      CreateDir(ExpandConstant('{app}\exports'));
+
+    // Create AppData directory for the application
+    AppDataDir := ExpandConstant('{userappdata}\timesync');
+    if not DirExists(AppDataDir) then
+      CreateDir(AppDataDir);
   end;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  TaskbarUnpinPath: String;
+begin
+  // Kill the application process if it's running
+  TaskbarUnpinPath := ExpandConstant('{sys}\taskkill.exe');
+  Exec(TaskbarUnpinPath, '/f /im "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  // Allow a moment for the process to close
+  Sleep(1000);
+
+  Result := True;
 end;

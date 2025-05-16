@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from datetime import datetime
 from typing import Dict, Any
 
@@ -34,7 +34,7 @@ class Application:
         self.initialize_database()
         self.setup_dependencies()
 
-        self.update_checker = UpdateChecker("https://your-update-server.com/api/updates")
+        self.update_checker = UpdateChecker("http://localhost:3010/api/updates")
 
     def initialize_database(self):
         """Initialize the database schema."""
@@ -256,27 +256,70 @@ class Application:
         # Run in background thread
         threading.Thread(target=_check, daemon=True).start()
 
+    # In src/application.py
     def apply_update(self, url):
-        """Download and apply the update."""
+        """Download and apply the update with progress reporting."""
 
         def _update():
-            # Show progress message
+            # Create progress window with more details
             progress_window = tk.Toplevel()
-            progress_window.title("Téléchargement de la mise à jour")
-            progress_window.geometry("300x100")
+            progress_window.title("Mise à jour en cours")
+            progress_window.geometry("450x180")
             progress_window.resizable(False, False)
+            #progress_window.transient(self.root)
+            progress_window.grab_set()
 
-            tk.Label(
+            # Center the window
+            progress_window.update_idletasks()
+            width = progress_window.winfo_width()
+            height = progress_window.winfo_height()
+            x = (progress_window.winfo_screenwidth() // 2) - (width // 2)
+            y = (progress_window.winfo_screenheight() // 2) - (height // 2)
+            progress_window.geometry(f"{width}x{height}+{x}+{y}")
+
+            # Status label
+            status_label = tk.Label(
                 progress_window,
-                text="Téléchargement de la mise à jour...\nL'application redémarrera automatiquement.",
-                pady=20
-            ).pack()
+                text="Téléchargement de la mise à jour...",
+                font=("Segoe UI", 10),
+                pady=10
+            )
+            status_label.pack()
+
+            # Progress bar
+            progress_bar = ttk.Progressbar(
+                progress_window,
+                orient="horizontal",
+                length=400,
+                mode="determinate"
+            )
+            progress_bar.pack(pady=10, padx=20)
+
+            # Progress percentage
+            percent_label = tk.Label(
+                progress_window,
+                text="0%",
+                font=("Segoe UI", 9)
+            )
+            percent_label.pack()
+
+            # Progress callback
+            def update_progress(percent):
+                progress_bar["value"] = percent
+                percent_label.config(text=f"{percent}%")
+                progress_window.update()
 
             # Download update
-            installer_path = self.update_checker.download_update(url)
-            progress_window.destroy()
+            installer_path = self.update_checker.download_update(url, update_progress)
 
             if installer_path:
+                # Update UI for installation phase
+                status_label.config(text="Installation en cours...")
+                progress_bar.config(mode="indeterminate")
+                progress_bar.start()
+                percent_label.config(text="L'application redémarrera automatiquement.")
+                progress_window.update()
+
                 # Stop services before updating
                 self.stop_service()
 
@@ -287,6 +330,7 @@ class Application:
                 import sys
                 sys.exit(0)
             else:
+                progress_window.destroy()
                 tk.messagebox.showerror(
                     "Échec de la mise à jour",
                     "Échec du téléchargement de la mise à jour. Veuillez réessayer plus tard."

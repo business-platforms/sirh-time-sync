@@ -983,6 +983,10 @@ class MainWindow:
             return
 
         self.setup_ui()
+
+        # Show update success notification if there was a recent update
+        self.root.after(2000, lambda: self.app.show_update_success_notification(self.root))
+
         self.root.mainloop()
 
         # After mainloop exits, check if we need to clean up

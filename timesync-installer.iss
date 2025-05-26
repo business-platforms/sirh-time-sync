@@ -5,7 +5,7 @@
 #define MyAppPublisher "Your Company"
 #define MyAppURL "https://yourcompany.com"
 #define MyAppExeName "timesync.exe"
-#define AppVersion "1.0.0"
+#define AppVersion "1.0.1"
 
 [Setup]
 ; Basic application information
@@ -43,6 +43,10 @@ ArchitecturesInstallIn64BitMode=x64
 
 ; Always create new log file
 SetupLogging=yes
+
+; Close applications that may interfere with update
+CloseApplications=yes
+RestartApplications=yes
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
@@ -84,12 +88,29 @@ Root: HKLM; Subkey: "Software\{#MyAppName}"; ValueType: string; ValueName: "Inst
 Root: HKLM; Subkey: "Software\{#MyAppName}"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
 
 [Code]
+var
+  PreviousInstallPath: String;
+  InstallationStartTime: String;
+
 function InitializeSetup(): Boolean;
 var
   UninstallString: String;
   ResultCode: Integer;
+  TempDir: String;
+  UpdatePendingFile: String;
 begin
   Result := True;
+
+  // Record installation start time
+  InstallationStartTime := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+
+  // Check for update pending file and clean it up
+  TempDir := GetTempDir();
+  UpdatePendingFile := TempDir + 'timesync_update_pending';
+  if FileExists(UpdatePendingFile) then
+  begin
+    Log('Found update pending file, proceeding with installation');
+  end;
 
   // Try to get the uninstaller path of the existing installation
   if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1',
@@ -97,12 +118,26 @@ begin
      RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#SetupSetting("AppId")}_is1',
                          'UninstallString', UninstallString) then
   begin
+    // Store previous installation path for backup purposes
+    if RegQueryStringValue(HKLM, 'Software\{#MyAppName}', 'InstallPath', PreviousInstallPath) then
+    begin
+      Log('Previous installation found at: ' + PreviousInstallPath);
+    end;
+
     // Previous installation exists - uninstall it silently without prompting
     if UninstallString <> '' then
     begin
+      Log('Uninstalling previous version silently');
       // Add /SILENT to the uninstaller command
       UninstallString := RemoveQuotes(UninstallString);
-      Exec(UninstallString, '/SILENT /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if Exec(UninstallString, '/SILENT /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      begin
+        Log('Previous version uninstalled successfully');
+      end
+      else
+      begin
+        Log('Failed to uninstall previous version, return code: ' + IntToStr(ResultCode));
+      end;
 
       // Wait a moment to ensure uninstall completes
       Sleep(2000);
@@ -113,34 +148,132 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   AppDataDir: String;
-  BackupDir: String;
+  TempDir: String;
+  CompletionFile: String;
+  UpdatePendingFile: String;
+  LogContent: String;
+  CurrentVersion: String;
 begin
+  if CurStep = ssInstall then
+  begin
+    Log('Installation step started at: ' + InstallationStartTime);
+  end;
+
   if CurStep = ssPostInstall then
   begin
+    Log('Post-installation setup beginning');
+
     // Create required directories
     if not DirExists(ExpandConstant('{app}\logs')) then
+    begin
       CreateDir(ExpandConstant('{app}\logs'));
+      Log('Created logs directory');
+    end;
 
     if not DirExists(ExpandConstant('{app}\exports')) then
+    begin
       CreateDir(ExpandConstant('{app}\exports'));
+      Log('Created exports directory');
+    end;
+
+    if not DirExists(ExpandConstant('{app}\backup')) then
+    begin
+      CreateDir(ExpandConstant('{app}\backup'));
+      Log('Created backup directory');
+    end;
 
     // Create AppData directory for the application
     AppDataDir := ExpandConstant('{userappdata}\timesync');
     if not DirExists(AppDataDir) then
+    begin
       CreateDir(AppDataDir);
+      Log('Created AppData directory: ' + AppDataDir);
+    end;
+
+    // Create update completion verification file
+    TempDir := GetTempDir();
+    CompletionFile := TempDir + 'timesync_update_complete';
+    UpdatePendingFile := TempDir + 'timesync_update_pending';
+
+    // Get the current version being installed
+    CurrentVersion := '{#AppVersion}';
+
+    // Create completion log content
+    LogContent := 'Installation completed successfully' + #13#10 +
+                  'Version: ' + CurrentVersion + #13#10 +
+                  'Install Path: ' + ExpandConstant('{app}') + #13#10 +
+                  'Installation Time: ' + InstallationStartTime + #13#10 +
+                  'Completion Time: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+
+    // Write completion file
+    if SaveStringToFile(CompletionFile, LogContent, False) then
+    begin
+      Log('Created update completion file: ' + CompletionFile);
+    end
+    else
+    begin
+      Log('Failed to create update completion file');
+    end;
+
+    // Clean up pending file if it exists
+    if FileExists(UpdatePendingFile) then
+    begin
+      if DeleteFile(UpdatePendingFile) then
+      begin
+        Log('Cleaned up update pending file');
+      end
+      else
+      begin
+        Log('Failed to clean up update pending file');
+      end;
+    end;
+
+    Log('Post-installation setup completed');
   end;
 end;
 
 function InitializeUninstall(): Boolean;
 var
-  TaskbarUnpinPath: String;
+  TaskKillPath: String;
+  ResultCode: Integer;
 begin
+  Log('Uninstallation starting');
+
   // Kill the application process if it's running
-  TaskbarUnpinPath := ExpandConstant('{sys}\taskkill.exe');
-  Exec(TaskbarUnpinPath, '/f /im "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  TaskKillPath := ExpandConstant('{sys}\taskkill.exe');
+  if FileExists(TaskKillPath) then
+  begin
+    if Exec(TaskKillPath, '/f /im "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      Log('Successfully terminated running application processes');
+    end
+    else
+    begin
+      Log('Failed to terminate application processes, or none were running');
+    end;
+  end;
 
   // Allow a moment for the process to close
   Sleep(1000);
 
   Result := True;
+end;
+
+procedure DeinitializeSetup();
+var
+  TempDir: String;
+  ErrorLogFile: String;
+  ErrorContent: String;
+begin
+  // If installation failed, create an error log
+  if GetLastError <> 0 then
+  begin
+    TempDir := GetTempDir();
+    ErrorLogFile := TempDir + 'timesync_install_error.log';
+    ErrorContent := 'Installation failed' + #13#10 +
+                   'Error Code: ' + IntToStr(GetLastError) + #13#10 +
+                   'Time: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+    SaveStringToFile(ErrorLogFile, ErrorContent, False);
+    Log('Installation failed, error log created');
+  end;
 end;

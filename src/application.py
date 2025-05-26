@@ -34,7 +34,53 @@ class Application:
         self.initialize_database()
         self.setup_dependencies()
 
-        self.update_checker = UpdateChecker(self.container.get('config_repository'), "https://timesync-dev.rh-partner.com/api/updates")
+        self.update_checker = UpdateChecker(self.container.get('config_repository'),
+                                            "https://timesync-dev.rh-partner.com/api/updates")
+
+        # Check for completed updates on startup
+        self.verify_update_on_startup()
+
+    def verify_update_on_startup(self):
+        """Check if an update was completed and notify user."""
+        try:
+            verification_result = self.update_checker.verify_update_completion()
+
+            if verification_result['update_completed']:
+                if verification_result['success']:
+                    logger.info(f"Update verification: {verification_result['message']}")
+                    # Don't show popup immediately on startup, just log success
+                    # The main window can show a notification if needed
+                else:
+                    logger.warning(f"Update may have failed: {verification_result['message']}")
+                    # You might want to handle failed updates here
+
+        except Exception as e:
+            logger.error(f"Error during startup update verification: {e}")
+
+    def show_update_success_notification(self, parent_window=None):
+        """Show update success notification if there was a recent update."""
+        try:
+            verification_result = self.update_checker.verify_update_completion()
+
+            if verification_result['update_completed'] and verification_result['success']:
+                if parent_window:
+                    messagebox.showinfo(
+                        "Mise à jour réussie",
+                        f"L'application a été mise à jour avec succès!\n\n{verification_result['message']}",
+                        parent=parent_window
+                    )
+                else:
+                    # Create temporary window for notification
+                    temp_window = tk.Tk()
+                    temp_window.withdraw()
+                    messagebox.showinfo(
+                        "Mise à jour réussie",
+                        f"L'application a été mise à jour avec succès!\n\n{verification_result['message']}"
+                    )
+                    temp_window.destroy()
+
+        except Exception as e:
+            logger.error(f"Error showing update success notification: {e}")
 
     def initialize_database(self):
         """Initialize the database schema."""
@@ -240,6 +286,17 @@ class Application:
             result = self.update_checker.check_for_updates()
 
             if result.get("available", False):
+                # Check prerequisites first
+                file_size = result.get("file_size", 0)
+                if file_size > 0:
+                    prereq_ok, prereq_msg = self.update_checker.check_update_prerequisites(file_size)
+                    if not prereq_ok:
+                        tk.messagebox.showerror(
+                            "Mise à jour impossible",
+                            f"Impossible de mettre à jour: {prereq_msg}"
+                        )
+                        return
+
                 # We have an update
                 if tk.messagebox.askyesno(
                         "Mise à jour disponible",
@@ -247,11 +304,11 @@ class Application:
                         f"Notes de version :\n{result['notes']}"
                 ):
                     self.apply_update(result["url"], result["download_token"])
-                elif show_if_none:
-                    tk.messagebox.showinfo(
-                        "Aucune mise à jour",
-                        f"Vous utilisez la dernière version ({self.update_checker.current_version})."
-                    )
+            elif show_if_none:
+                tk.messagebox.showinfo(
+                    "Aucune mise à jour",
+                    f"Vous utilisez la dernière version ({self.update_checker.current_version})."
+                )
 
         # Run in background thread
         threading.Thread(target=_check, daemon=True).start()
@@ -265,6 +322,19 @@ class Application:
         result = self.update_checker.check_for_updates()
 
         if result.get("available", False):
+            # Check prerequisites first
+            file_size = result.get("file_size", 0)
+            if file_size > 0:
+                prereq_ok, prereq_msg = self.update_checker.check_update_prerequisites(file_size)
+                if not prereq_ok:
+                    if parent_window:
+                        tk.messagebox.showerror(
+                            "Mise à jour impossible",
+                            f"Impossible de mettre à jour: {prereq_msg}\n\nL'application va se fermer.",
+                            parent=parent_window
+                        )
+                    return False
+
             # Create or use the provided parent window for the dialog
             if not parent_window:
                 temp_window = tk.Tk()
@@ -305,7 +375,7 @@ class Application:
             progress_window.title("Mise à jour en cours")
             progress_window.geometry("450x180")
             progress_window.resizable(False, False)
-            #progress_window.transient(self.root)
+            # progress_window.transient(self.root)
             progress_window.grab_set()
 
             # Center the window
@@ -348,32 +418,50 @@ class Application:
                 percent_label.config(text=f"{percent}%")
                 progress_window.update()
 
-            # Download update
-            installer_path = self.update_checker.download_update(url, update_progress)
+            try:
+                # Download update
+                installer_path = self.update_checker.download_update(url, update_progress)
 
-            if installer_path:
-                # Update UI for installation phase
-                status_label.config(text="Installation en cours...")
-                progress_bar.config(mode="indeterminate")
-                progress_bar.start()
-                percent_label.config(text="L'application redémarrera automatiquement.")
-                progress_window.update()
+                if installer_path:
+                    # Update UI for installation phase
+                    status_label.config(text="Installation en cours...")
+                    progress_bar.config(mode="indeterminate")
+                    progress_bar.start()
+                    percent_label.config(text="L'application redémarrera automatiquement.")
+                    progress_window.update()
 
-                # Stop services before updating
-                self.stop_service()
+                    # Stop services before updating
+                    self.stop_service()
 
-                # Apply update
-                self.update_checker.apply_update(installer_path)
+                    # Apply update
+                    if self.update_checker.apply_update(installer_path):
+                        # Give installer time to start before exiting
+                        import time
+                        time.sleep(2)
 
-                # Exit application to allow installer to run
-                import sys
-                sys.exit(0)
-            else:
+                        # Exit application to allow installer to run
+                        import sys
+                        sys.exit(0)
+                    else:
+                        progress_window.destroy()
+                        tk.messagebox.showerror(
+                            "Échec de la mise à jour",
+                            "Échec de l'installation de la mise à jour. Veuillez réessayer."
+                        )
+                else:
+                    progress_window.destroy()
+                    tk.messagebox.showerror(
+                        "Échec de la mise à jour",
+                        "Échec du téléchargement de la mise à jour. Veuillez réessayer plus tard."
+                    )
+            except Exception as e:
                 progress_window.destroy()
                 tk.messagebox.showerror(
-                    "Échec de la mise à jour",
-                    "Échec du téléchargement de la mise à jour. Veuillez réessayer plus tard."
+                    "Erreur de mise à jour",
+                    f"Une erreur s'est produite pendant la mise à jour: {str(e)}"
                 )
+                logger.error(f"Error during update process: {e}")
+
         # Run in background thread
         threading.Thread(target=_update, daemon=True).start()
 
@@ -426,30 +514,49 @@ class Application:
             percent_label.config(text=f"{percent}%")
             progress_window.update()
 
-        # Download update
-        installer_path = self.update_checker.download_update(url, update_progress)
+        try:
+            # Download update
+            installer_path = self.update_checker.download_update(url, update_progress)
 
-        if installer_path:
-            # Update UI for installation phase
-            status_label.config(text="Installation en cours...")
-            progress_bar.config(mode="indeterminate")
-            progress_bar.start()
-            percent_label.config(text="L'application redémarrera automatiquement.")
-            progress_window.update()
+            if installer_path:
+                # Update UI for installation phase
+                status_label.config(text="Installation en cours...")
+                progress_bar.config(mode="indeterminate")
+                progress_bar.start()
+                percent_label.config(text="L'application redémarrera automatiquement.")
+                progress_window.update()
 
-            # Stop services before updating
-            self.stop_service()
+                # Stop services before updating
+                self.stop_service()
 
-            # Apply update
-            self.update_checker.apply_update(installer_path)
+                # Apply update
+                if self.update_checker.apply_update(installer_path):
+                    # Give installer time to start before exiting
+                    import time
+                    time.sleep(2)
 
-            # Exit application to allow installer to run
-            import sys
-            sys.exit(0)
-        else:
+                    # Exit application to allow installer to run
+                    import sys
+                    sys.exit(0)
+                else:
+                    progress_window.destroy()
+                    tk.messagebox.showerror(
+                        "Échec de la mise à jour",
+                        "Échec de l'installation de la mise à jour. L'application va se fermer."
+                    )
+                    return False
+            else:
+                progress_window.destroy()
+                tk.messagebox.showerror(
+                    "Échec de la mise à jour",
+                    "Échec du téléchargement de la mise à jour. L'application va se fermer."
+                )
+                return False
+        except Exception as e:
             progress_window.destroy()
             tk.messagebox.showerror(
-                "Échec de la mise à jour",
-                "Échec du téléchargement de la mise à jour. L'application va se fermer."
+                "Erreur de mise à jour",
+                f"Une erreur s'est produite: {str(e)}. L'application va se fermer."
             )
+            logger.error(f"Error during mandatory update: {e}")
             return False

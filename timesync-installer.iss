@@ -2,8 +2,8 @@
 ; This script handles installation, updates, and ensures single installation
 
 #define MyAppName "Time Attendance System"
-#define MyAppPublisher "Your Company"
-#define MyAppURL "https://yourcompany.com"
+#define MyAppPublisher "Business Platforms"
+#define MyAppURL "https://busniess-platforms.com"
 #define MyAppExeName "timesync.exe"
 #define AppVersion "1.0.1"
 
@@ -260,20 +260,10 @@ begin
 end;
 
 procedure DeinitializeSetup();
-var
-  TempDir: String;
-  ErrorLogFile: String;
-  ErrorContent: String;
 begin
-  // If installation failed, create an error log
-  if GetLastError <> 0 then
-  begin
-    TempDir := GetTempDir();
-    ErrorLogFile := TempDir + 'timesync_install_error.log';
-    ErrorContent := 'Installation failed' + #13#10 +
-                   'Error Code: ' + IntToStr(GetLastError) + #13#10 +
-                   'Time: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
-    SaveStringToFile(ErrorLogFile, ErrorContent, False);
-    Log('Installation failed, error log created');
-  end;
+  // Clean up any temporary files or perform final tasks
+  Log('Setup completed - performing cleanup');
+
+  // Note: In Inno Setup, we don't have direct access to installation error status
+  // The installer will handle errors appropriately through its normal mechanisms
 end;

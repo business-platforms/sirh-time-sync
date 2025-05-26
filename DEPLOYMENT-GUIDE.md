@@ -123,21 +123,6 @@ For automated deployments, the installer supports silent installation:
 timesync-setup-1.0.0.exe /VERYSILENT /NORESTART
 ```
 
-### Update Server Setup
-
-To enable automatic updates:
-
-1. Host the installer files on a web server
-2. Create a JSON API endpoint that returns update information in this format:
-   ```json
-   {
-     "update_available": true,
-     "version": "1.0.1",
-     "download_url": "https://your-server.com/downloads/timesync-setup-1.0.1.exe",
-     "notes": "Bug fixes and performance improvements"
-   }
-   ```
-
 ## Troubleshooting Common Issues
 
 ### Missing Dependencies

@@ -35,34 +35,61 @@ if not os.path.exists("assets/timesync-logo.png"):
 os.makedirs("src/util", exist_ok=True)
 
 # Define PyInstaller arguments
+# Define PyInstaller arguments with pandas/numpy fixes
 args = [
-    "main.py",  # Your main script
-    "--name=timesync",  # Name of the application
-    "--onefile",  # Create a single executable file
-    "--windowed",  # Don't show console window
-    "--add-data=assets;assets",  # Add assets directory
-    "--add-data=src;src",  # Add src directory (including the new util module)
-    "--add-data=version.txt;.",  # Add version file
+    "main.py",
+    "--name=timesync",
+    "--onefile",
+    "--windowed",
+    "--add-data=assets;assets",
+    "--add-data=src;src",
+    "--add-data=version.txt;.",
+
+    # Core hidden imports
     "--hidden-import=sqlite3",
     "--hidden-import=requests",
     "--hidden-import=zk",
     "--hidden-import=schedule",
     "--hidden-import=uuid",
-    "--hidden-import=pandas",
-    "--hidden-import=openpyxl",
     "--hidden-import=tkinter.simpledialog",
     "--hidden-import=pystray",
-    "--hidden-import=pillow",
-    # Exclude unnecessary packages to reduce size
-    # "--exclude-module=matplotlib",
-    # "--exclude-module=scipy",
-    # "--exclude-module=numpy",
-    # "--exclude-module=tkinter.test",
-    # Prevent temp directory from being cleaned
+    "--hidden-import=PIL",
+
+    # Pandas and numpy specific fixes
+    "--hidden-import=pandas",
+    "--hidden-import=pandas._libs.tslibs.timedeltas",
+    "--hidden-import=pandas._libs.tslibs.np_datetime",
+    "--hidden-import=pandas._libs.tslibs.nattype",
+    "--hidden-import=pandas._libs.skiplist",
+    "--hidden-import=pandas.io.formats.style",
+    "--hidden-import=numpy",
+    "--hidden-import=numpy.random.common",
+    "--hidden-import=numpy.random.bounded_integers",
+    "--hidden-import=numpy.random.entropy",
+
+    # Openpyxl for Excel functionality
+    "--hidden-import=openpyxl",
+    "--hidden-import=openpyxl.workbook",
+    "--hidden-import=openpyxl.worksheet.worksheet",
+
+    # Additional fixes for pandas dependencies
+    "--collect-submodules=pandas",
+    "--collect-submodules=numpy",
+    "--collect-data=pandas",
+
+    # Exclude problematic modules to reduce size
+    "--exclude-module=matplotlib",
+    "--exclude-module=scipy",
+    "--exclude-module=IPython",
+    "--exclude-module=jupyter",
+    "--exclude-module=notebook",
+    "--exclude-module=tkinter.test",
+
+    # Build configuration
     "--distpath=./dist",
     "--workpath=./build",
+    "--clean",  # Clean build cache
 ]
-
 # Run PyInstaller
 PyInstaller.__main__.run(args)
 

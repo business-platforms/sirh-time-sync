@@ -42,6 +42,7 @@ class DatabaseInitializer:
                 company_id TEXT NOT NULL,
                 api_username TEXT NOT NULL,
                 api_password TEXT NOT NULL,
+                api_secret_key TEXT NOT NULL,
                 device_ip TEXT NOT NULL,
                 device_port INTEGER NOT NULL,
                 collection_interval INTEGER NOT NULL,

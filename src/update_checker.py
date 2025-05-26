@@ -8,6 +8,9 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+from src.data.repositories import ConfigRepository
+from src.util.compute_checksum import compute_sha256
 from src.util.paths import get_database_path  # Import our database path function
 
 logger = logging.getLogger(__name__)
@@ -16,7 +19,8 @@ logger = logging.getLogger(__name__)
 class UpdateChecker:
     """Checks for and applies updates to the application."""
 
-    def __init__(self, update_url: str):
+    def __init__(self, config_repository: ConfigRepository, update_url: str):
+        self.config_repository = config_repository
         self.update_url = update_url
         self.current_version = self._get_current_version()
 
@@ -45,9 +49,17 @@ class UpdateChecker:
 
     def check_for_updates(self) -> Dict[str, Any]:
         """Check for available updates."""
+        config = self.config_repository.get_config()
         try:
+
+            headers = {
+                'email': config.api_username,
+                'secret-key': config.api_secret_key
+            }
+
             response = requests.get(f"{self.update_url}/check",
                                     params={"version": self.current_version},
+                                    headers=headers,
                                     timeout=10)
 
             if response.status_code == 200:
@@ -55,6 +67,7 @@ class UpdateChecker:
                 return {
                     "available": data.get("update_available", False),
                     "version": data.get("version", ""),
+                    "download_token": data.get("download_token", "?"),
                     "url": data.get("download_url", ""),
                     "notes": data.get("notes", "")
                 }
@@ -66,45 +79,91 @@ class UpdateChecker:
             logger.error(f"Error checking for updates: {e}")
             return {"available": False}
 
-    def download_update(self, url: str, progress_callback=None) -> Optional[str]:
+    def download_update(self, url: str,  progress_callback=None) -> Optional[str]:
         """Download update file to temporary location with progress reporting."""
         try:
             # Start download with streaming
-            response = requests.get(url, stream=True, timeout=60)
+            logger.debug(f"Initiating GET request to {url} with streaming enabled and a 60-second timeout.")
+            response = requests.get(url, stream=True, timeout=500)
+
+            # Log HTTP status code
             if response.status_code != 200:
-                logger.error(f"Failed to download update: {response.status_code}")
+                logger.error(f"Failed to download update. HTTP status code: {response.status_code}. Response content: {response.text[:200]}...")
                 return None
+            logger.info(f"Successfully connected to the update server. HTTP status code: {response.status_code}.")
 
             # Get total size
             total_size = int(response.headers.get('content-length', 0))
+            if total_size == 0:
+                logger.warning("Content-Length header not found or is zero. Cannot report accurate download progress.")
+            else:
+                logger.info(f"Total update file size: {total_size} bytes.")
 
             # Create temp file with .exe extension
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.exe')
             temp_file.close()
+            logger.info(f"Created temporary file for download: {temp_file.name}")
 
             # Download with progress updates
             downloaded = 0
-            with open(temp_file.name, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if progress_callback and total_size > 0:
-                            progress = int(downloaded * 100 / total_size)
-                            progress_callback(progress)
+            try:
+                with open(temp_file.name, 'wb') as f:
+                    logger.debug("Starting file download in chunks.")
+                    for chunk_num, chunk in enumerate(response.iter_content(chunk_size=8192)):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if progress_callback and total_size > 0:
+                                progress = int(downloaded * 100 / total_size)
+                                # Log progress at certain intervals to avoid excessive logging
+                                if chunk_num % 100 == 0 or downloaded == total_size: # Log every 100 chunks or when finished
+                                    logger.debug(f"Download progress: {progress}% ({downloaded}/{total_size} bytes).")
+                                progress_callback(progress)
+                logger.info(f"File download complete. Total bytes downloaded: {downloaded}.")
+            except IOError as e:
+                logger.error(f"Error writing to temporary file {temp_file.name} during download: {e}")
+                os.remove(temp_file.name)
+                return None
 
-            logger.info(f"Downloaded update to {temp_file.name}")
+
+            # Verify checksum
+            checksum = response.headers.get('X-Content-Checksum')
+            logger.info(f"Verifying checksum for downloaded file: {temp_file.name}")
+            computed_checksum = compute_sha256(temp_file.name)
+            if computed_checksum.lower() != checksum.lower():
+                logger.error(f"Checksum mismatch for {temp_file.name}. Expected: {checksum}, Got: {computed_checksum}. Deleting corrupt file.")
+                os.remove(temp_file.name)
+                return None
+            logger.info(f"Checksum verification successful. Downloaded file integrity confirmed.")
+
+            logger.info(f"Update successfully downloaded and verified to {temp_file.name}")
             return temp_file.name
 
         except requests.exceptions.Timeout:
-            logger.error("Download timed out. Network connection may be slow.")
+            logger.error("Download timed out after 60 seconds. This might indicate a slow network connection or an unresponsive server.")
+            if 'temp_file' in locals() and os.path.exists(temp_file.name):
+                os.remove(temp_file.name)
+                logger.debug(f"Removed incomplete download file: {temp_file.name}")
             return None
-        except requests.exceptions.ConnectionError:
-            logger.error("Connection error. Unable to reach update server.")
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error occurred. Unable to reach the update server. Details: {e}")
+            if 'temp_file' in locals() and os.path.exists(temp_file.name):
+                os.remove(temp_file.name)
+                logger.debug(f"Removed incomplete download file: {temp_file.name}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"An unexpected request-related error occurred during download: {e}")
+            if 'temp_file' in locals() and os.path.exists(temp_file.name):
+                os.remove(temp_file.name)
+                logger.debug(f"Removed incomplete download file: {temp_file.name}")
             return None
         except Exception as e:
-            logger.error(f"Error downloading update: {e}")
+            logger.critical(f"An unhandled critical error occurred during the update download process: {e}", exc_info=True)
+            if 'temp_file' in locals() and os.path.exists(temp_file.name):
+                os.remove(temp_file.name)
+                logger.debug(f"Removed incomplete download file: {temp_file.name}")
             return None
+
 
     def apply_update(self, installer_path: str) -> bool:
         """Run the installer to apply the update."""

@@ -47,6 +47,7 @@ class ConfigInterface:
         self.company_id_var = tk.StringVar()
         self.api_username_var = tk.StringVar()
         self.api_password_var = tk.StringVar()
+        self.api_secret_key_var = tk.StringVar()
         self.device_ip_var = tk.StringVar()
         self.device_port_var = tk.IntVar(value=4370)
         self.collection_interval_var = tk.IntVar(value=60)
@@ -187,6 +188,14 @@ class ConfigInterface:
         ttk.Entry(password_frame, textvariable=self.api_password_var, show="*", width=40).pack(side=tk.LEFT,
                                                                                                expand=True, fill=tk.X)
 
+        # API Secret Key
+        secret_key_frame = ttk.Frame(card, style='Card.TFrame')
+        secret_key_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(secret_key_frame, text="Clé Secrète API:", style='Card.TLabel').pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Entry(secret_key_frame, textvariable=self.api_secret_key_var, show="*", width=40).pack(side=tk.LEFT,
+                                                                                                   expand=True,
+                                                                                                   fill=tk.X)
+
     def create_device_config_card(self, parent):
         """Create the device configuration card."""
         card = self.create_card(parent, "Configuration de l'Appareil")
@@ -264,6 +273,7 @@ class ConfigInterface:
             company_id=self.company_id_var.get(),
             api_username=self.api_username_var.get(),
             api_password=self.api_password_var.get(),
+            api_secret_key=self.api_secret_key_var.get(),
             device_ip=self.device_ip_var.get(),
             device_port=int(self.device_port_var.get()),
             collection_interval=int(self.collection_interval_var.get()),
@@ -288,6 +298,7 @@ class ConfigInterface:
             self.company_id_var.set(config.company_id)
             self.api_username_var.set(config.api_username)
             self.api_password_var.set(config.api_password)
+            self.api_secret_key_var.set(config.api_secret_key)
             self.device_ip_var.set(config.device_ip)
             self.device_port_var.set(config.device_port)
             self.collection_interval_var.set(config.collection_interval)

@@ -34,7 +34,7 @@ class Application:
         self.initialize_database()
         self.setup_dependencies()
 
-        self.update_checker = UpdateChecker("http://localhost:3010/api/updates")
+        self.update_checker = UpdateChecker(self.container.get('config_repository'), "https://timesync-dev.rh-partner.com/api/updates")
 
     def initialize_database(self):
         """Initialize the database schema."""
@@ -246,7 +246,7 @@ class Application:
                         f"Une nouvelle version ({result['version']}) est disponible. Voulez-vous mettre à jour maintenant ?\n\n"
                         f"Notes de version :\n{result['notes']}"
                 ):
-                    self.apply_update(result["url"])
+                    self.apply_update(result["url"], result["download_token"])
                 elif show_if_none:
                     tk.messagebox.showinfo(
                         "Aucune mise à jour",
@@ -287,7 +287,7 @@ class Application:
 
             if update_choice == 'yes':
                 # Start update process
-                return self.apply_mandatory_update(result["url"])
+                return self.apply_mandatory_update(result["url"], result["download_token"])
             else:
                 # User declined update, exit application
                 if not parent_window:
@@ -296,7 +296,7 @@ class Application:
 
         return True  # No update available or update not required
 
-    def apply_update(self, url):
+    def apply_update(self, url, download_token):
         """Download and apply the update with progress reporting."""
 
         def _update():
@@ -377,7 +377,7 @@ class Application:
         # Run in background thread
         threading.Thread(target=_update, daemon=True).start()
 
-    def apply_mandatory_update(self, url):
+    def apply_mandatory_update(self, url, download_token):
         """Download and apply a mandatory update with progress reporting."""
         # Create progress window
         progress_window = tk.Tk()

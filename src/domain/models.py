@@ -84,6 +84,7 @@ class Config:
     company_id: str = ""
     api_username: str = ""
     api_password: str = ""
+    api_secret_key: str = ""
     device_ip: str = ""
     device_port: int = 4370
     collection_interval: int = 60

@@ -47,6 +47,7 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
                 company_id=row['company_id'],
                 api_username=row['api_username'],
                 api_password=row['api_password'],
+                api_secret_key=row['api_secret_key'],
                 device_ip=row['device_ip'],
                 device_port=row['device_port'],
                 collection_interval=row['collection_interval'],
@@ -70,12 +71,12 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
         if existing_config:
             cursor.execute('''
             UPDATE config SET 
-                company_id = ?, api_username = ?, api_password = ?, 
+                company_id = ?, api_username = ?, api_password = ?, api_secret_key = ?, 
                 device_ip = ?, device_port = ?, collection_interval = ?, 
                 upload_interval = ?, import_interval = ?, updated_at = ? 
             WHERE id = ?
             ''', (
-                config.company_id, config.api_username, config.api_password,
+                config.company_id, config.api_username, config.api_password, config.api_secret_key,
                 config.device_ip, config.device_port, config.collection_interval,
                 config.upload_interval, config.import_interval, now, existing_config['id']
             ))

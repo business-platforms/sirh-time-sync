@@ -28,6 +28,8 @@ class SQLiteRepository:
         conn.row_factory = sqlite3.Row
         return conn
 
+class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
+    """SQLite implementation of ConfigRepository."""
 
     def get_config(self) -> Optional[Config]:
         """Get the system configuration from the database."""

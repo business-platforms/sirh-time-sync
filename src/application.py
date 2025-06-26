@@ -130,11 +130,12 @@ class Application:
             api_url
         ))
 
-        # Register attendance service
+        # Register attendance service with config repository injection
         self.container.register('attendance_service', AttendanceService(
             self.container.get('attendance_repository'),
             self.container.get('log_repository'),
-            self.container.get('device_service')
+            self.container.get('device_service'),
+            self.container.get('config_repository')  # Added config repository injection
         ))
 
         # Register sync service

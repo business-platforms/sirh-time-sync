@@ -1,4 +1,3 @@
-# src/data/database_initializer.py
 import sqlite3
 import os
 import logging
@@ -35,7 +34,7 @@ class DatabaseInitializer:
         try:
             logger.info("Starting database initialization")
 
-            # Create config table
+            # Create config table with automatic_detection field
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS config (
                 id INTEGER PRIMARY KEY,
@@ -48,6 +47,7 @@ class DatabaseInitializer:
                 collection_interval INTEGER NOT NULL,
                 upload_interval INTEGER NOT NULL,
                 import_interval INTEGER NOT NULL DEFAULT 12,
+                automatic_detection INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -100,14 +100,23 @@ class DatabaseInitializer:
         cursor = conn.cursor()
 
         try:
-            # Example: Check if we need to add a new column to an existing table
+            # Check attendance_records table for missing columns
             cursor.execute("PRAGMA table_info(attendance_records)")
-            columns = [column[1] for column in cursor.fetchall()]
+            attendance_columns = [column[1] for column in cursor.fetchall()]
 
-            # Add any missing columns or make other schema changes
-            if 'errors' not in columns:
+            # Add any missing columns to attendance_records
+            if 'errors' not in attendance_columns:
                 logger.info("Upgrading schema: Adding 'errors' column to attendance_records")
                 cursor.execute("ALTER TABLE attendance_records ADD COLUMN errors TEXT")
+
+            # Check config table for missing columns
+            cursor.execute("PRAGMA table_info(config)")
+            config_columns = [column[1] for column in cursor.fetchall()]
+
+            # Add automatic_detection column if missing
+            if 'automatic_detection' not in config_columns:
+                logger.info("Upgrading schema: Adding 'automatic_detection' column to config")
+                cursor.execute("ALTER TABLE config ADD COLUMN automatic_detection INTEGER NOT NULL DEFAULT 0")
 
             conn.commit()
             logger.info("Database schema checked and upgraded if needed")

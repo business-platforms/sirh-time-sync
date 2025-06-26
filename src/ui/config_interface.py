@@ -15,6 +15,57 @@ from src.core.config_service import ConfigurationService
 logger = logging.getLogger(__name__)
 
 
+class ModernToggleSwitch(tk.Frame):
+    """A modern toggle switch widget."""
+
+    def __init__(self, parent, variable, on_color="#4CAF50", off_color="#CCCCCC", **kwargs):
+        super().__init__(parent, **kwargs)
+        self.variable = variable
+        self.on_color = on_color
+        self.off_color = off_color
+
+        # Create canvas for the toggle
+        self.canvas = tk.Canvas(self, width=50, height=25, highlightthickness=0)
+        self.canvas.pack()
+
+        # Draw initial toggle
+        self.draw_toggle()
+
+        # Bind click event
+        self.canvas.bind("<Button-1>", self.toggle)
+        self.bind("<Button-1>", self.toggle)
+
+        # Trace variable changes
+        self.variable.trace_add("write", self.on_variable_change)
+
+    def draw_toggle(self):
+        """Draw the toggle switch."""
+        self.canvas.delete("all")
+
+        # Get current state
+        is_on = self.variable.get()
+
+        # Colors
+        bg_color = self.on_color if is_on else self.off_color
+        knob_color = "white"
+
+        # Draw background
+        self.canvas.create_oval(2, 2, 48, 23, fill=bg_color, outline="")
+
+        # Draw knob
+        knob_x = 35 if is_on else 15
+        self.canvas.create_oval(knob_x - 8, 4, knob_x + 8, 21, fill=knob_color, outline="")
+
+    def toggle(self, event=None):
+        """Toggle the switch state."""
+        current_value = self.variable.get()
+        self.variable.set(not current_value)
+
+    def on_variable_change(self, *args):
+        """Handle variable change."""
+        self.draw_toggle()
+
+
 class ConfigInterface:
     """Interface for configuring the attendance system."""
 
@@ -53,11 +104,12 @@ class ConfigInterface:
         self.collection_interval_var = tk.IntVar(value=60)
         self.upload_interval_var = tk.IntVar(value=1)
         self.user_import_interval_var = tk.IntVar(value=12)
+        self.automatic_detection_var = tk.BooleanVar(value=False)  # New variable for automatic detection
 
         # Configure window basics
         self.root.title("Configuration du Système de Présence")
-        self.root.geometry("900x750")
-        self.root.minsize(850, 800)
+        self.root.geometry("900x1000")  # Increased height for new toggle
+        self.root.minsize(850, 1000)
         self.root.withdraw()  # Hide window during setup
 
         # Set up style
@@ -124,6 +176,7 @@ class ConfigInterface:
         self.create_api_config_card(main_frame)
         self.create_device_config_card(main_frame)
         self.create_scheduler_config_card(main_frame)
+        self.create_detection_config_card(main_frame)  # New card for automatic detection
 
         # Create bottom button panel
         self.create_button_panel(main_frame)
@@ -228,7 +281,7 @@ class ConfigInterface:
         upload_frame = ttk.Frame(card, style='Card.TFrame')
         upload_frame.pack(fill=tk.X, pady=5)
         ttk.Label(upload_frame, text="Intervalle de Téléchargement (minutes):", style='Card.TLabel').pack(side=tk.LEFT,
-                                                                                                         padx=(0, 10))
+                                                                                                          padx=(0, 10))
         ttk.Entry(upload_frame, textvariable=self.upload_interval_var, width=40).pack(side=tk.LEFT, expand=True,
                                                                                       fill=tk.X)
 
@@ -239,6 +292,39 @@ class ConfigInterface:
             side=tk.LEFT, padx=(0, 10))
         ttk.Entry(import_frame, textvariable=self.user_import_interval_var, width=40).pack(side=tk.LEFT, expand=True,
                                                                                            fill=tk.X)
+
+    def create_detection_config_card(self, parent):
+        """Create the automatic detection configuration card."""
+        card = self.create_card(parent, "Options de Détection")
+
+        # Automatic Detection Toggle
+        detection_frame = ttk.Frame(card, style='Card.TFrame')
+        detection_frame.pack(fill=tk.X, pady=10)
+
+        # Label
+        label_frame = ttk.Frame(detection_frame, style='Card.TFrame')
+        label_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        ttk.Label(label_frame, text="Détection Automatique:", style='Card.TLabel').pack(side=tk.LEFT)
+
+        # Description
+        desc_label = ttk.Label(label_frame,
+                               text="Detecter automatiquement le type de pointages",
+                               style='Card.TLabel',
+                               font=('Segoe UI', 9))
+        desc_label.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Toggle switch
+        toggle_frame = ttk.Frame(detection_frame, style='Card.TFrame')
+        toggle_frame.pack(side=tk.RIGHT, padx=(10, 0))
+
+        self.toggle_switch = ModernToggleSwitch(
+            toggle_frame,
+            self.automatic_detection_var,
+            on_color=self.COLOR_SUCCESS,
+            off_color="#CCCCCC"
+        )
+        self.toggle_switch.pack()
 
     def create_button_panel(self, parent):
         """Create the panel with action buttons."""
@@ -278,7 +364,8 @@ class ConfigInterface:
             device_port=int(self.device_port_var.get()),
             collection_interval=int(self.collection_interval_var.get()),
             upload_interval=int(self.upload_interval_var.get()),
-            import_interval=int(self.user_import_interval_var.get())
+            import_interval=int(self.user_import_interval_var.get()),
+            automatic_detection=self.automatic_detection_var.get()  # Include automatic detection
         )
 
     def load_config(self):
@@ -304,6 +391,7 @@ class ConfigInterface:
             self.collection_interval_var.set(config.collection_interval)
             self.upload_interval_var.set(config.upload_interval)
             self.user_import_interval_var.set(config.import_interval)
+            self.automatic_detection_var.set(config.automatic_detection)  # Load automatic detection setting
 
             # Update UI
             self.root.update_idletasks()

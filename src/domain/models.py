@@ -1,4 +1,3 @@
-# src/domain/models.py
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -90,6 +89,7 @@ class Config:
     collection_interval: int = 60
     upload_interval: int = 1
     import_interval: int = 12
+    automatic_detection: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

@@ -1,4 +1,3 @@
-# src/service/attendance_service.py
 import logging
 import os
 import uuid
@@ -7,7 +6,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
 
 from src.domain.models import AttendanceRecord, APIUploadLog, ProcessedStatus, PunchType
-from src.data.repositories import AttendanceRepository, LogRepository
+from src.data.repositories import AttendanceRepository, LogRepository, ConfigRepository
 from src.service.device_service import DeviceService
 
 logger = logging.getLogger(__name__)
@@ -20,11 +19,13 @@ class AttendanceService:
             self,
             attendance_repository: AttendanceRepository,
             log_repository: LogRepository,
-            device_service: DeviceService
+            device_service: DeviceService,
+            config_repository: ConfigRepository = None
     ):
         self.attendance_repository = attendance_repository
         self.log_repository = log_repository
         self.device_service = device_service
+        self.config_repository = config_repository
 
         # Ensure exports directory exists
         os.makedirs('exports', exist_ok=True)
@@ -67,6 +68,13 @@ class AttendanceService:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             filename = f"exports/attendance_{timestamp}_{batch_id}.xlsx"
 
+            # Get automatic detection setting from config
+            automatic_detection_enabled = False
+            if self.config_repository:
+                config = self.config_repository.get_config()
+                if config:
+                    automatic_detection_enabled = config.automatic_detection
+
             # Create a DataFrame for export
             export_data = [
                 {
@@ -74,6 +82,7 @@ class AttendanceService:
                     'Nom': None,
                     'time': record.timestamp,
                     'type': PunchType.to_string(record.punch_type),
+                    'Automatic Detection': automatic_detection_enabled,  # New column
                     'recordId': record.id
                 }
                 for record in records
@@ -88,6 +97,7 @@ class AttendanceService:
             export_df.to_excel(filename, index=False)
 
             logger.info(f"Created Excel report with {len(records)} records at {filename}")
+            logger.info(f"Automatic Detection column included: {automatic_detection_enabled}")
 
             return {
                 'batch_id': batch_id,

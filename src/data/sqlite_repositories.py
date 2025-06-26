@@ -53,6 +53,7 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
                 collection_interval=row['collection_interval'],
                 upload_interval=row['upload_interval'],
                 import_interval=row['import_interval'],
+                automatic_detection=bool(row['automatic_detection']) if 'automatic_detection' in row.keys() else False,
                 created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None,
                 updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else None
             )
@@ -73,23 +74,23 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
             UPDATE config SET 
                 company_id = ?, api_username = ?, api_password = ?, api_secret_key = ?, 
                 device_ip = ?, device_port = ?, collection_interval = ?, 
-                upload_interval = ?, import_interval = ?, updated_at = ? 
+                upload_interval = ?, import_interval = ?, automatic_detection = ?, updated_at = ? 
             WHERE id = ?
             ''', (
                 config.company_id, config.api_username, config.api_password, config.api_secret_key,
                 config.device_ip, config.device_port, config.collection_interval,
-                config.upload_interval, config.import_interval, now, existing_config['id']
+                config.upload_interval, config.import_interval, int(config.automatic_detection), now, existing_config['id']
             ))
         else:
             cursor.execute('''
             INSERT INTO config (
-                company_id, api_username, api_password, device_ip, device_port, 
-                collection_interval, upload_interval, import_interval, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                company_id, api_username, api_password, api_secret_key, device_ip, device_port, 
+                collection_interval, upload_interval, import_interval, automatic_detection, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                config.company_id, config.api_username, config.api_password,
+                config.company_id, config.api_username, config.api_password, config.api_secret_key,
                 config.device_ip, config.device_port, config.collection_interval,
-                config.upload_interval, config.import_interval, now, now
+                config.upload_interval, config.import_interval, int(config.automatic_detection), now, now
             ))
 
         conn.commit()

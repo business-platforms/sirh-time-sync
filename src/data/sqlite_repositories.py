@@ -83,9 +83,9 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
         else:
             cursor.execute('''
             INSERT INTO config (
-                company_id, api_username, api_password, device_ip, device_port, 
+                company_id, api_username, api_password, api_secret_key, device_ip, device_port, 
                 collection_interval, upload_interval, import_interval, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 config.company_id, config.api_username, config.api_password,
                 config.device_ip, config.device_port, config.collection_interval,

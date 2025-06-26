@@ -1,4 +1,3 @@
-# src/data/database_initializer.py
 import sqlite3
 import os
 import logging
@@ -35,14 +34,14 @@ class DatabaseInitializer:
         try:
             logger.info("Starting database initialization")
 
-            # Create config table
+            # Create config table - made api_secret_key optional
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS config (
                 id INTEGER PRIMARY KEY,
                 company_id TEXT NOT NULL,
                 api_username TEXT NOT NULL,
                 api_password TEXT NOT NULL,
-                api_secret_key TEXT NOT NULL,
+                api_secret_key TEXT,
                 device_ip TEXT NOT NULL,
                 device_port INTEGER NOT NULL,
                 collection_interval INTEGER NOT NULL,
@@ -100,7 +99,15 @@ class DatabaseInitializer:
         cursor = conn.cursor()
 
         try:
-            # Example: Check if we need to add a new column to an existing table
+            # Check if we need to add api_secret_key column to existing tables
+            cursor.execute("PRAGMA table_info(config)")
+            columns = [column[1] for column in cursor.fetchall()]
+
+            if 'api_secret_key' not in columns:
+                logger.info("Upgrading schema: Adding 'api_secret_key' column to config")
+                cursor.execute("ALTER TABLE config ADD COLUMN api_secret_key TEXT")
+
+            # Check attendance_records table
             cursor.execute("PRAGMA table_info(attendance_records)")
             columns = [column[1] for column in cursor.fetchall()]
 

@@ -47,7 +47,7 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
                 company_id=row['company_id'],
                 api_username=row['api_username'],
                 api_password=row['api_password'],
-                api_secret_key=row['api_secret_key'],
+                api_secret_key=row['api_secret_key'] if 'api_secret_key' in row.keys() else "",
                 device_ip=row['device_ip'],
                 device_port=row['device_port'],
                 collection_interval=row['collection_interval'],
@@ -69,28 +69,84 @@ class SQLiteConfigRepository(SQLiteRepositoryBase, ConfigRepository):
         now = datetime.now()
 
         if existing_config:
-            cursor.execute('''
-            UPDATE config SET 
-                company_id = ?, api_username = ?, api_password = ?, api_secret_key = ?, 
-                device_ip = ?, device_port = ?, collection_interval = ?, 
-                upload_interval = ?, import_interval = ?, updated_at = ? 
-            WHERE id = ?
-            ''', (
-                config.company_id, config.api_username, config.api_password, config.api_secret_key,
-                config.device_ip, config.device_port, config.collection_interval,
-                config.upload_interval, config.import_interval, now, existing_config['id']
-            ))
+            # UPDATE statement
+            update_sql = '''
+                         UPDATE config \
+                         SET company_id          = ?, \
+                             api_username        = ?, \
+                             api_password        = ?, \
+                             api_secret_key      = ?, \
+                             device_ip           = ?, \
+                             device_port         = ?, \
+                             collection_interval = ?, \
+                             upload_interval     = ?, \
+                             import_interval     = ?, \
+                             updated_at          = ?
+                         WHERE id = ? \
+                         '''
+
+            update_values = (
+                config.company_id,
+                config.api_username,
+                config.api_password,
+                config.api_secret_key,
+                config.device_ip,
+                config.device_port,
+                config.collection_interval,
+                config.upload_interval,
+                config.import_interval,
+                now,
+                existing_config['id']
+            )
+
+            # Debug logging
+            placeholders_count = update_sql.count('?')
+            values_count = len(update_values)
+            logger.info(f"UPDATE: SQL placeholders: {placeholders_count}, Values provided: {values_count}")
+            logger.debug(f"UPDATE SQL: {update_sql}")
+            logger.debug(f"UPDATE Values: {update_values}")
+
+            if placeholders_count != values_count:
+                logger.error(f"Mismatch in UPDATE: {placeholders_count} placeholders vs {values_count} values")
+                raise ValueError(f"SQL placeholder mismatch in UPDATE: {placeholders_count} vs {values_count}")
+
+            cursor.execute(update_sql, update_values)
+
         else:
-            cursor.execute('''
-            INSERT INTO config (
-                company_id, api_username, api_password, api_secret_key, device_ip, device_port, 
-                collection_interval, upload_interval, import_interval, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                config.company_id, config.api_username, config.api_password,
-                config.device_ip, config.device_port, config.collection_interval,
-                config.upload_interval, config.import_interval, now, now
-            ))
+            # INSERT statement
+            insert_sql = '''
+                         INSERT INTO config (company_id, api_username, api_password, api_secret_key, \
+                                             device_ip, device_port, collection_interval, upload_interval, \
+                                             import_interval, created_at, updated_at) \
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+                         '''
+
+            insert_values = (
+                config.company_id,
+                config.api_username,
+                config.api_password,
+                config.api_secret_key,
+                config.device_ip,
+                config.device_port,
+                config.collection_interval,
+                config.upload_interval,
+                config.import_interval,
+                now,
+                now
+            )
+
+            # Debug logging
+            placeholders_count = insert_sql.count('?')
+            values_count = len(insert_values)
+            logger.info(f"INSERT: SQL placeholders: {placeholders_count}, Values provided: {values_count}")
+            logger.debug(f"INSERT SQL: {insert_sql}")
+            logger.debug(f"INSERT Values: {insert_values}")
+
+            if placeholders_count != values_count:
+                logger.error(f"Mismatch in INSERT: {placeholders_count} placeholders vs {values_count} values")
+                raise ValueError(f"SQL placeholder mismatch in INSERT: {placeholders_count} vs {values_count}")
+
+            cursor.execute(insert_sql, insert_values)
 
         conn.commit()
         conn.close()

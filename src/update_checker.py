@@ -1,4 +1,4 @@
-# src/update_checker.py
+# src/update_checker.py - FIXED VERSION
 import os
 import sys
 import requests
@@ -30,25 +30,99 @@ class UpdateChecker:
     def _get_current_version(self) -> str:
         """Get the current version of the application."""
         try:
-            # Get path to version.txt relative to executable
-            if getattr(sys, 'frozen', False):
-                # Running as executable
-                app_dir = os.path.dirname(sys.executable)
-                version_path = os.path.join(app_dir, "version.txt")
-            else:
-                # Running as script
-                app_dir = os.path.dirname(os.path.abspath(__file__))
-                version_path = os.path.join(os.path.dirname(app_dir), "version.txt")
+            version_file_paths = []
 
-            if os.path.exists(version_path):
-                with open(version_path, "r") as f:
-                    return f.read().strip()
+            if getattr(sys, 'frozen', False):
+                # Running as PyInstaller executable
+
+                # First, try to get from the installation directory (external file)
+                app_dir = os.path.dirname(sys.executable)
+                external_version_path = os.path.join(app_dir, "version.txt")
+                version_file_paths.append(external_version_path)
+
+                # Then, try to get from the temporary extracted directory (packaged file)
+                if hasattr(sys, '_MEIPASS'):
+                    internal_version_path = os.path.join(sys._MEIPASS, "version.txt")
+                    version_file_paths.append(internal_version_path)
+
+                # Also try relative to the executable name with version suffix
+                exe_name = os.path.splitext(os.path.basename(sys.executable))[0]
+                version_from_exe = os.path.join(app_dir, f"{exe_name}_version.txt")
+                version_file_paths.append(version_from_exe)
+
             else:
-                logger.warning("Version file not found")
-                return "0.0.0"
+                # Running as script (development)
+                app_dir = os.path.dirname(os.path.abspath(__file__))
+                script_version_path = os.path.join(os.path.dirname(app_dir), "version.txt")
+                version_file_paths.append(script_version_path)
+
+            # Try each path in order of preference
+            for version_path in version_file_paths:
+                if os.path.exists(version_path):
+                    try:
+                        with open(version_path, "r", encoding='utf-8') as f:
+                            version = f.read().strip()
+                            if version:
+                                logger.info(f"Found version {version} at {version_path}")
+                                return version
+                    except Exception as e:
+                        logger.warning(f"Could not read version from {version_path}: {e}")
+                        continue
+
+            # If no version file found, try to extract from executable properties (Windows)
+            if os.name == 'nt' and getattr(sys, 'frozen', False):
+                version = self._get_version_from_executable()
+                if version and version != "0.0.0":
+                    return version
+
+            logger.warning("Version file not found in any expected location")
+            return "0.0.0"
+
         except Exception as e:
             logger.error(f"Error getting current version: {e}")
             return "0.0.0"
+
+    def _get_version_from_executable(self) -> str:
+        """Try to get version from Windows executable properties."""
+        try:
+            if os.name == 'nt':
+                import win32api
+                import win32file
+
+                try:
+                    info = win32api.GetFileVersionInfo(sys.executable, "\\")
+                    ms = info['FileVersionMS']
+                    ls = info['FileVersionLS']
+                    version = f"{win32file.HIWORD(ms)}.{win32file.LOWORD(ms)}.{win32file.HIWORD(ls)}"
+                    if version and version != "0.0.0":
+                        logger.info(f"Extracted version {version} from executable properties")
+                        return version
+                except ImportError:
+                    # win32api not available
+                    pass
+                except Exception as e:
+                    logger.debug(f"Could not extract version from executable: {e}")
+        except Exception:
+            pass
+
+        return "0.0.0"
+
+    def _create_external_version_file(self, version: str) -> bool:
+        """Create an external version file in the installation directory."""
+        try:
+            if getattr(sys, 'frozen', False):
+                app_dir = os.path.dirname(sys.executable)
+                version_path = os.path.join(app_dir, "version.txt")
+
+                with open(version_path, "w", encoding='utf-8') as f:
+                    f.write(version)
+
+                logger.info(f"Created external version file: {version_path} with version {version}")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to create external version file: {e}")
+
+        return False
 
     def check_for_updates(self) -> Dict[str, Any]:
         """Check for available updates."""

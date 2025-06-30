@@ -2,12 +2,14 @@ import PyInstaller.__main__
 import os
 import shutil
 
-# Application version
+# Application version - This should be updated for each build
 VERSION = "1.0.0"
 
-# Create version file
+# Create version file in root directory for installer
 with open("version.txt", "w") as f:
     f.write(VERSION)
+
+print(f"Created version.txt with version: {VERSION}")
 
 # Clean previous build
 if os.path.exists("dist"):
@@ -90,17 +92,43 @@ args = [
     "--clean",  # Clean build cache
 ]
 
+print("Starting PyInstaller build...")
+
 # Run PyInstaller
 PyInstaller.__main__.run(args)
 
 # Create necessary directories in the distribution directory
-# Note: We still create 'logs' and 'exports' which may be used with absolute paths
 os.makedirs("dist/logs", exist_ok=True)
 os.makedirs("dist/exports", exist_ok=True)
 os.makedirs("dist/backup", exist_ok=True)
 
-# We no longer create a placeholder database in the dist directory
-# since our database will now be stored in the user's AppData folder
+# CRITICAL FIX: Copy version.txt to dist directory for installer to pick up
+dist_version_path = "dist/version.txt"
+if os.path.exists("version.txt"):
+    shutil.copy2("version.txt", dist_version_path)
+    print(f"Copied version.txt to {dist_version_path}")
+else:
+    # Create version file in dist if it doesn't exist
+    with open(dist_version_path, "w") as f:
+        f.write(VERSION)
+    print(f"Created version.txt in dist directory: {dist_version_path}")
+
+# Verify the version file was created
+if os.path.exists(dist_version_path):
+    with open(dist_version_path, "r") as f:
+        created_version = f.read().strip()
+    print(f"Verified version file in dist: {created_version}")
+else:
+    print("ERROR: Version file not found in dist directory!")
 
 print(f"Build completed: timesync v{VERSION}")
 print("Note: Database will be stored in user's AppData folder for persistence")
+print(f"Version file created at: {dist_version_path}")
+
+# Additional verification
+executable_path = "dist/timesync.exe"
+if os.path.exists(executable_path):
+    print(f"Executable created: {executable_path}")
+    print(f"Executable size: {os.path.getsize(executable_path) / 1024 / 1024:.2f} MB")
+else:
+    print("ERROR: Executable not found!")

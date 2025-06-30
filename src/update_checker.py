@@ -8,12 +8,13 @@ import shutil
 import subprocess
 import time
 import atexit
+import psutil
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 from src.data.repositories import ConfigRepository
 from src.util.compute_checksum import compute_sha256
-from src.util.paths import get_database_path  # Import our database path function
+from src.util.paths import get_database_path
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,6 @@ class UpdateChecker:
         """Check for available updates."""
         config = self.config_repository.get_config()
         try:
-
             headers = {
                 'email': config.api_username,
                 'secret-key': config.api_secret_key
@@ -72,7 +72,7 @@ class UpdateChecker:
                     "download_token": data.get("download_token", "?"),
                     "url": data.get("download_url", ""),
                     "notes": data.get("notes", ""),
-                    "file_size": data.get("file_size", 0)  # Add file size for prerequisite checks
+                    "file_size": data.get("file_size", 0)
                 }
             else:
                 logger.error(f"Error checking for updates: {response.status_code}")
@@ -85,10 +85,10 @@ class UpdateChecker:
     def check_update_prerequisites(self, file_size: int) -> tuple[bool, str]:
         """Check if system meets update requirements."""
         try:
-            # Check available disk space (need space for download + installation)
+            # Check available disk space
             temp_dir = tempfile.gettempdir()
             free_space = shutil.disk_usage(temp_dir).free
-            required_space = file_size * 3  # Download + extraction + safety margin
+            required_space = file_size * 3
 
             if free_space < required_space:
                 error_msg = f"Insufficient disk space. Required: {required_space // 1024 // 1024}MB, Available: {free_space // 1024 // 1024}MB"
@@ -113,6 +113,16 @@ class UpdateChecker:
                 logger.warning(error_msg)
                 return False, error_msg
 
+            # Check if running as administrator on Windows
+            if os.name == 'nt':
+                try:
+                    import ctypes
+                    is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+                    if not is_admin:
+                        logger.warning("Not running as administrator - this may cause installation issues")
+                except:
+                    pass
+
             return True, "Prerequisites check passed"
 
         except Exception as e:
@@ -136,7 +146,6 @@ class UpdateChecker:
             logger.debug(f"Initiating GET request to {url} with streaming enabled and a 500-second timeout.")
             response = requests.get(url, stream=True, timeout=500)
 
-            # Log HTTP status code
             if response.status_code != 200:
                 logger.error(
                     f"Failed to download update. HTTP status code: {response.status_code}. Response content: {response.text[:200]}...")
@@ -169,8 +178,7 @@ class UpdateChecker:
                             downloaded += len(chunk)
                             if progress_callback and total_size > 0:
                                 progress = int(downloaded * 100 / total_size)
-                                # Log progress at certain intervals to avoid excessive logging
-                                if chunk_num % 100 == 0 or downloaded == total_size:  # Log every 100 chunks or when finished
+                                if chunk_num % 100 == 0 or downloaded == total_size:
                                     logger.debug(f"Download progress: {progress}% ({downloaded}/{total_size} bytes).")
                                 progress_callback(progress)
                 logger.info(f"File download complete. Total bytes downloaded: {downloaded}.")
@@ -231,12 +239,50 @@ class UpdateChecker:
             if update_lock:
                 self._safe_remove(update_lock)
 
+    def _force_close_application(self) -> bool:
+        """Force close all instances of the application."""
+        try:
+            current_pid = os.getpid()
+            app_name = "timesync.exe"
+            killed_processes = 0
+
+            for process in psutil.process_iter(['pid', 'name']):
+                try:
+                    if process.info['name'].lower() == app_name.lower() and process.info['pid'] != current_pid:
+                        logger.info(f"Terminating process {process.info['pid']}: {process.info['name']}")
+                        process.terminate()
+                        killed_processes += 1
+
+                        # Wait for process to terminate gracefully
+                        try:
+                            process.wait(timeout=5)
+                        except psutil.TimeoutExpired:
+                            logger.warning(f"Process {process.info['pid']} didn't terminate gracefully, killing it")
+                            process.kill()
+
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    pass
+
+            if killed_processes > 0:
+                logger.info(f"Terminated {killed_processes} application processes")
+                time.sleep(2)  # Give processes time to fully close
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error force closing application: {e}")
+            return False
+
     def apply_update(self, installer_path: str) -> bool:
         """Run the installer to apply the update with improved error handling."""
         verification_file = None
         install_log = None
 
         try:
+            # Force close any running instances of the application
+            logger.info("Ensuring all application instances are closed before update")
+            self._force_close_application()
+
             # Get application directory
             if getattr(sys, 'frozen', False):
                 app_dir = os.path.dirname(sys.executable)
@@ -257,48 +303,78 @@ class UpdateChecker:
             logger.info(f"Installation log will be written to: {install_log}")
             logger.info(f"Update verification file: {verification_file}")
 
-            # Prepare installer arguments
-            installer_args = [
-                installer_path,
-                "/VERYSILENT",  # No UI during installation
-                "/NORESTART",  # Don't restart Windows
-                "/CLOSEAPPLICATIONS",  # Close the application if running
-                "/RESTARTAPPLICATIONS",  # Restart the application after update
-                f"/LOG={install_log}",  # Create installation log
-                "/SUPPRESSMSGBOXES"  # Don't show message boxes
-            ]
+            # Check if we need to run as administrator
+            need_admin = self._check_admin_required(app_dir)
+
+            if need_admin and os.name == 'nt':
+                # Try to run with elevated privileges on Windows
+                installer_args = [
+                    "powershell", "-Command",
+                    f"Start-Process '{installer_path}' -ArgumentList '/VERYSILENT','/NORESTART','/CLOSEAPPLICATIONS','/RESTARTAPPLICATIONS','/LOG={install_log}','/SUPPRESSMSGBOXES' -Verb RunAs -Wait"
+                ]
+                logger.info("Running installer with elevated privileges")
+            else:
+                # Prepare standard installer arguments
+                installer_args = [
+                    installer_path,
+                    "/VERYSILENT",
+                    "/NORESTART",
+                    "/CLOSEAPPLICATIONS",
+                    "/RESTARTAPPLICATIONS",
+                    f"/LOG={install_log}",
+                    "/SUPPRESSMSGBOXES",
+                    "/NOCANCEL",  # Prevent cancellation
+                    "/NOREBOOT"  # Don't reboot system
+                ]
 
             # Start the installer process
             logger.info("Launching installer process...")
+            logger.info(f"Installer arguments: {' '.join(installer_args)}")
+
             process = subprocess.Popen(
                 installer_args,
                 cwd=os.path.dirname(installer_path),
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
 
-            # Wait a short time for the installer to start and validate
+            # Wait for installer to complete with extended timeout
             try:
-                # Wait up to 15 seconds for installer to start
-                return_code = process.wait(timeout=15)
+                stdout, stderr = process.communicate(timeout=300)  # 5 minute timeout
+                return_code = process.returncode
+
                 logger.info(f"Installer process completed with return code: {return_code}")
 
+                if stdout:
+                    logger.debug(f"Installer stdout: {stdout.decode('utf-8', errors='ignore')}")
+                if stderr:
+                    logger.debug(f"Installer stderr: {stderr.decode('utf-8', errors='ignore')}")
+
+                # Check installation log for more details
+                if os.path.exists(install_log):
+                    try:
+                        with open(install_log, 'r', encoding='utf-8', errors='ignore') as f:
+                            log_content = f.read()
+                            logger.info(f"Installation log content:\n{log_content}")
+                    except Exception as e:
+                        logger.warning(f"Could not read installation log: {e}")
+
                 if return_code == 0:
-                    logger.info("Installer started successfully")
-                    # Schedule cleanup of installer file after a delay
-                    self._schedule_delayed_cleanup(installer_path, 60)  # Clean up after 60 seconds
+                    logger.info("Installer completed successfully")
+                    self._schedule_delayed_cleanup(installer_path, 60)
                     return True
                 else:
                     logger.error(f"Installer failed with return code: {return_code}")
+                    self._log_installer_error(return_code)
                     self._cleanup_failed_update(installer_path, verification_file)
                     return False
 
             except subprocess.TimeoutExpired:
-                # Installer is still running after 15 seconds, which is normal for background installation
-                logger.info("Installer is running in background (this is normal)")
-                # The installer will handle the rest, including application restart
-                self._schedule_delayed_cleanup(installer_path, 120)  # Clean up after 2 minutes
-                return True
+                logger.error("Installer timed out after 5 minutes")
+                process.kill()
+                self._cleanup_failed_update(installer_path, verification_file)
+                return False
 
         except FileNotFoundError:
             logger.error(f"Installer file not found: {installer_path}")
@@ -312,6 +388,51 @@ class UpdateChecker:
             logger.error(f"Error applying update: {e}")
             self._cleanup_failed_update(installer_path, verification_file)
             return False
+
+    def _check_admin_required(self, app_dir: str) -> bool:
+        """Check if administrator privileges are required for installation."""
+        try:
+            # Check if app is installed in Program Files (usually requires admin)
+            program_files_paths = [
+                os.environ.get('PROGRAMFILES', ''),
+                os.environ.get('PROGRAMFILES(X86)', ''),
+                'C:\\Program Files',
+                'C:\\Program Files (x86)'
+            ]
+
+            for pf_path in program_files_paths:
+                if pf_path and app_dir.lower().startswith(pf_path.lower()):
+                    return True
+
+            # Try to write a test file to the app directory
+            test_file = os.path.join(app_dir, 'write_test.tmp')
+            try:
+                with open(test_file, 'w') as f:
+                    f.write('test')
+                os.remove(test_file)
+                return False  # Can write, no admin needed
+            except (PermissionError, OSError):
+                return True  # Cannot write, admin likely needed
+
+        except Exception as e:
+            logger.warning(f"Could not determine admin requirements: {e}")
+            return False  # Default to not requiring admin
+
+    def _log_installer_error(self, return_code: int):
+        """Log detailed information about installer error codes."""
+        error_messages = {
+            1: "Setup failed to initialize",
+            2: "The user clicked Cancel in the wizard before installation started, or Setup started at too low a priority",
+            3: "A fatal error occurred while preparing to move to the next installation phase",
+            4: "A fatal error occurred during installation phase",
+            5: "The user clicked Cancel during installation phase",
+            6: "A fatal error occurred during post-installation phase",
+            7: "User clicked Cancel during the post-installation phase",
+            8: "Preparing to Install stage of Setup failed"
+        }
+
+        message = error_messages.get(return_code, f"Unknown error (code {return_code})")
+        logger.error(f"Installer error code {return_code}: {message}")
 
     def _schedule_delayed_cleanup(self, installer_path: str, delay_seconds: int):
         """Schedule cleanup of installer file after a delay."""

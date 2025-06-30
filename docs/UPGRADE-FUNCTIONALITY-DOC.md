@@ -49,7 +49,11 @@ The Time Attendance System includes an automated update mechanism that allows de
 **File Upload:**
 1. Copy the installer file to the server's download directory:
    ```
-   /usr/src/downloads/timesync-setup-1.0.2.exe
+   sudo cp timesync-setup-X.X.X.exe /root/sirh/time-sync/downloads/timesync-setup-X.X.X.exe
+   ```
+2. execute these commands to change the ownership of the file: 
+   ``` 
+   sudo chmod 644 /root/sirh/time-sync/downloads/timesync-setup-X.X.X.exe
    ```
 
 **Version Registration:**

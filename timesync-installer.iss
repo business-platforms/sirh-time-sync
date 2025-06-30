@@ -39,14 +39,20 @@ UninstallDisplayName={#MyAppName}
 
 ; Windows specific settings
 PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64
 
 ; Always create new log file
 SetupLogging=yes
 
-; Close applications that may interfere with update
-CloseApplications=yes
+; Close applications and handle updates better
+CloseApplications=force
 RestartApplications=yes
+AppMutex=TimeSyncMutex
+
+; Update-specific settings
+AllowUNCPath=false
+DisableWelcomePage=no
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
@@ -57,8 +63,8 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 Name: "startupicon"; Description: "Lancer au démarrage de Windows"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
 
 [Files]
-Source: "dist\timesync.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\timesync.exe"; DestDir: "{app}"; Flags: ignoreversion replacesameversion
+Source: "dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs replacesameversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
@@ -92,12 +98,31 @@ var
   PreviousInstallPath: String;
   InstallationStartTime: String;
 
+function IsApplicationRunning(): Boolean;
+var
+  FWnd: HWND;
+begin
+  FWnd := FindWindowByWindowName('Time Attendance System');
+  if FWnd = 0 then
+    FWnd := FindWindowByWindowName('Panneau de Contrôle du Système de Présence');
+  Result := FWnd <> 0;
+end;
+
+function KillTask(TaskName: String): Integer;
+var
+  ResultCode: Integer;
+begin
+  Exec('taskkill.exe', '/f /im ' + TaskName, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := ResultCode;
+end;
+
 function InitializeSetup(): Boolean;
 var
   UninstallString: String;
   ResultCode: Integer;
   TempDir: String;
   UpdatePendingFile: String;
+  RetryCount: Integer;
 begin
   Result := True;
 
@@ -110,6 +135,36 @@ begin
   if FileExists(UpdatePendingFile) then
   begin
     Log('Found update pending file, proceeding with installation');
+  end;
+
+  // Force close running application instances
+  RetryCount := 0;
+  while IsApplicationRunning() and (RetryCount < 5) do
+  begin
+    Log('Application is running, attempting to close it (attempt ' + IntToStr(RetryCount + 1) + ')');
+
+    // Try to close gracefully first
+    KillTask('timesync.exe');
+
+    Sleep(2000); // Wait 2 seconds
+
+    if IsApplicationRunning() then
+    begin
+      Log('Application still running after graceful close attempt');
+      // Force kill if still running
+      KillTask('timesync.exe');
+      Sleep(1000);
+    end;
+
+    RetryCount := RetryCount + 1;
+  end;
+
+  if IsApplicationRunning() then
+  begin
+    Log('Warning: Could not close all application instances');
+  end else
+  begin
+    Log('All application instances closed successfully');
   end;
 
   // Try to get the uninstaller path of the existing installation
@@ -130,18 +185,42 @@ begin
       Log('Uninstalling previous version silently');
       // Add /SILENT to the uninstaller command
       UninstallString := RemoveQuotes(UninstallString);
-      if Exec(UninstallString, '/SILENT /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      if Exec(UninstallString, '/SILENT /NORESTART /SUPPRESSMSGBOXES', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       begin
         Log('Previous version uninstalled successfully');
       end
       else
       begin
         Log('Failed to uninstall previous version, return code: ' + IntToStr(ResultCode));
+        // Continue anyway, as the installation might still work
       end;
 
       // Wait a moment to ensure uninstall completes
-      Sleep(2000);
+      Sleep(3000);
     end;
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  RetryCount: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+
+  // Final check and force close any remaining instances
+  RetryCount := 0;
+  while IsApplicationRunning() and (RetryCount < 3) do
+  begin
+    Log('Final application close check (attempt ' + IntToStr(RetryCount + 1) + ')');
+    KillTask('timesync.exe');
+    Sleep(1000);
+    RetryCount := RetryCount + 1;
+  end;
+
+  if IsApplicationRunning() then
+  begin
+    Log('Warning: Application may still be running during installation');
   end;
 end;
 
@@ -236,25 +315,36 @@ function InitializeUninstall(): Boolean;
 var
   TaskKillPath: String;
   ResultCode: Integer;
+  RetryCount: Integer;
 begin
   Log('Uninstallation starting');
 
   // Kill the application process if it's running
-  TaskKillPath := ExpandConstant('{sys}\taskkill.exe');
-  if FileExists(TaskKillPath) then
+  RetryCount := 0;
+  while IsApplicationRunning() and (RetryCount < 5) do
   begin
-    if Exec(TaskKillPath, '/f /im "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Log('Attempting to close application for uninstall (attempt ' + IntToStr(RetryCount + 1) + ')');
+
+    TaskKillPath := ExpandConstant('{sys}\taskkill.exe');
+    if FileExists(TaskKillPath) then
     begin
-      Log('Successfully terminated running application processes');
-    end
-    else
-    begin
-      Log('Failed to terminate application processes, or none were running');
+      if Exec(TaskKillPath, '/f /im "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      begin
+        Log('Attempted to terminate running application processes');
+      end;
     end;
+
+    Sleep(2000);
+    RetryCount := RetryCount + 1;
   end;
 
-  // Allow a moment for the process to close
-  Sleep(1000);
+  if IsApplicationRunning() then
+  begin
+    Log('Warning: Application may still be running during uninstall');
+  end else
+  begin
+    Log('Application successfully closed for uninstall');
+  end;
 
   Result := True;
 end;
@@ -263,7 +353,4 @@ procedure DeinitializeSetup();
 begin
   // Clean up any temporary files or perform final tasks
   Log('Setup completed - performing cleanup');
-
-  // Note: In Inno Setup, we don't have direct access to installation error status
-  // The installer will handle errors appropriately through its normal mechanisms
 end;

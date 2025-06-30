@@ -1,4 +1,3 @@
-# build.py
 import PyInstaller.__main__
 import os
 import shutil
@@ -34,8 +33,7 @@ if not os.path.exists("assets/timesync-logo.png"):
 # Ensure the util directory exists for our new paths.py module
 os.makedirs("src/util", exist_ok=True)
 
-# Define PyInstaller arguments
-# Define PyInstaller arguments with pandas/numpy fixes
+# Define PyInstaller arguments with pandas/numpy fixes and psutil
 args = [
     "main.py",
     "--name=timesync",
@@ -54,6 +52,7 @@ args = [
     "--hidden-import=tkinter.simpledialog",
     "--hidden-import=pystray",
     "--hidden-import=PIL",
+    "--hidden-import=psutil",  # Added for process management
 
     # Pandas and numpy specific fixes
     "--hidden-import=pandas",
@@ -90,6 +89,7 @@ args = [
     "--workpath=./build",
     "--clean",  # Clean build cache
 ]
+
 # Run PyInstaller
 PyInstaller.__main__.run(args)
 

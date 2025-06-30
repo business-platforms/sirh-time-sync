@@ -7,3 +7,4 @@ future~=1.0.0
 pyinstaller~=6.13.0
 pystray>=0.19.4
 pillow>=9.0.0
+psutil>=5.9.0

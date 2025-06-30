@@ -1,4 +1,3 @@
-# src/update_checker.py - FIXED VERSION
 import os
 import sys
 import requests

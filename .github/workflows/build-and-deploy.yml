@@ -34,7 +34,18 @@ jobs:
           echo "📦 Installer: timesync-setup-$version.exe"
         shell: pwsh
 
-      # Check if version exists on server (replicate Jenkins check)
+      # === MOVE SSH SETUP HERE (BEFORE VERSION CHECK) ===
+      - name: Setup SSH key
+        run: |
+          echo "🔑 Setting up SSH key..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+          echo "✅ SSH key configured"
+        shell: bash
+
+      # Now this can use the SSH key that was just set up
       - name: Check existing version on server
         run: |
           echo "🔍 Checking if version ${{ env.VERSION }} already exists on server..."
@@ -81,15 +92,6 @@ jobs:
         shell: pwsh
 
       # === DEPLOYMENT SECTION ===
-      - name: Setup SSH key
-        run: |
-          echo "🔑 Setting up SSH key..."
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
-        shell: bash
-
       - name: Deploy installer to server
         run: |
           echo "🚀 Deploying ${{ env.INSTALLER_NAME }} to server..."

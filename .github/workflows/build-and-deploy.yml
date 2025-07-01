@@ -34,7 +34,7 @@ jobs:
           echo "📦 Installer: timesync-setup-$version.exe"
         shell: pwsh
 
-      # === MOVE SSH SETUP HERE (BEFORE VERSION CHECK) ===
+      # === SSH SETUP FIRST ===
       - name: Setup SSH key
         run: |
           echo "🔑 Setting up SSH key..."
@@ -45,7 +45,6 @@ jobs:
           echo "✅ SSH key configured"
         shell: bash
 
-      # Now this can use the SSH key that was just set up
       - name: Check existing version on server
         run: |
           echo "🔍 Checking if version ${{ env.VERSION }} already exists on server..."
@@ -120,34 +119,43 @@ jobs:
           echo "✅ Deployment successful: ${{ env.INSTALLER_NAME }} uploaded ($remoteSize bytes)"
         shell: pwsh
 
-      - name: Register version with update server
+      # DIRECT VERSION FILE UPDATE
+      - name: Update version file on server
         run: |
-          echo "📝 Registering version ${{ env.VERSION }} with update server..."
+          echo "📝 Updating versions.json file on server..."
           
-          # Prepare API request
-          $payload = @{
-            version = "${{ env.VERSION }}"
-            notes = "Automated release from GitHub Actions"
-          } | ConvertTo-Json
+          # Read current versions.json from server
+          echo "🔍 Reading current versions.json..."
+          $currentVersions = ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat /root/sirh/time-sync/app-data/versions.json"
+          echo "Current versions.json content: $currentVersions"
           
-          # Make API call
-          try {
-            $response = Invoke-RestMethod -Uri "${{ env.UPDATE_SERVER_URL }}/api/admin/versions/add" `
-              -Method POST `
-              -Headers @{
-                'admin-key' = "${{ secrets.ADMIN_KEY }}"
-                'Content-Type' = 'application/json'
-              } `
-              -Body $payload
-            
-            echo "✅ Version ${{ env.VERSION }} registered successfully"
-            echo "📊 Response: $($response | ConvertTo-Json -Compress)"
-            
-          } catch {
-            echo "❌ Failed to register version: $($_.Exception.Message)"
-            echo "Response: $($_.Exception.Response)"
-            exit 1
+          # Create updated versions.json content
+          $newVersionData = @{
+            latest = @{
+              version = "${{ env.VERSION }}"
+              notes = "Automated release from GitHub Actions - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            }
+            versions = @{
+              "${{ env.VERSION }}" = @{
+                notes = "Automated release from GitHub Actions"
+                releaseDate = "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')"
+              }
+            }
           }
+          
+          # Convert to JSON
+          $jsonContent = $newVersionData | ConvertTo-Json -Depth 3 -Compress
+          echo "📝 New JSON content: $jsonContent"
+          
+          # Write updated versions.json to server
+          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "echo '$jsonContent' > /root/sirh/time-sync/app-data/versions.json"
+          
+          # Verify the update
+          echo "✅ Verifying update..."
+          $updatedContent = ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat /root/sirh/time-sync/app-data/versions.json"
+          echo "Updated versions.json: $updatedContent"
+          
+          echo "✅ Version ${{ env.VERSION }} registered successfully in versions.json"
         shell: pwsh
 
       - name: Cleanup SSH key
@@ -171,4 +179,5 @@ jobs:
           echo "📦 Version: ${{ env.VERSION }}"
           echo "📁 Installer: ${{ env.INSTALLER_NAME }}"
           echo "🔗 Download URL: ${{ env.UPDATE_SERVER_URL }}/api/updates/download"
+          echo "📋 Version file updated: /root/sirh/time-sync/app-data/versions.json"
         shell: pwsh

@@ -130,13 +130,6 @@ def main():
         print(f"Build completed: {installer_path} ({installer_size:.2f} MB)")
         print(f"Latest installer: {latest_path}")
 
-        # Additional verification
-        print("\nBuild Verification:")
-        print(f"✓ Executable: dist/timesync.exe")
-        print(f"✓ Version file (dist): dist/version.txt")
-        print(f"✓ Version file (root): version.txt")
-        print(f"✓ Installer: {installer_path}")
-
         return 0
     else:
         print(f"Error: Installer not found at {installer_path}")

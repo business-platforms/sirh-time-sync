@@ -17,7 +17,7 @@ pipeline {
     environment {
         // Update server details
         UPDATE_SERVER_URL = 'http://timesync-dev.rh-partner.com:3010'
-        ADMIN_KEY = credentials('Vastness5-Ferocious1-Stooge7-Brewing9')
+        ADMIN_KEY = 'Vastness5-Ferocious1-Stooge7-Brewing9'
 
         // Server connection details
         SERVER_HOST = 'timesync-dev.rh-partner.com'

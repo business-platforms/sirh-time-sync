@@ -527,55 +527,88 @@ class Application:
         )
         percent_label.pack()
 
-        # Progress callback
+        # Variables to track progress from the download thread
+        download_progress = {"percent": 0, "done": False, "error": None, "installer_path": None}
+
+        # Progress callback that updates the shared variable
         def update_progress(percent):
-            progress_bar["value"] = percent
-            percent_label.config(text=f"{percent}%")
-            progress_window.update()
+            download_progress["percent"] = percent
 
-        try:
-            # Download update
-            installer_path = self.update_checker.download_update(url, update_progress)
+        # Download function that runs in the main thread
+        def download_update():
+            try:
+                # Download update
+                installer_path = self.update_checker.download_update(url, update_progress)
+                download_progress["installer_path"] = installer_path
+                download_progress["done"] = True
+            except Exception as e:
+                download_progress["error"] = str(e)
+                download_progress["done"] = True
 
-            if installer_path:
-                # Update UI for installation phase
-                status_label.config(text="Installation en cours...")
-                progress_bar.config(mode="indeterminate")
-                progress_bar.start()
-                percent_label.config(text="L'application redémarrera automatiquement.")
-                progress_window.update()
+        # Start download in a background thread
+        import threading
+        download_thread = threading.Thread(target=download_update, daemon=True)
+        download_thread.start()
 
-                # Stop services before updating
-                self.stop_service()
+        # Main loop to update the progress window
+        def check_progress():
+            # Update progress bar and label
+            progress_bar["value"] = download_progress["percent"]
+            percent_label.config(text=f"{download_progress['percent']}%")
 
-                # Apply update
-                if self.update_checker.apply_update(installer_path):
-                    # Give installer time to start before exiting
-                    import time
-                    time.sleep(2)
-
-                    # Exit application to allow installer to run
-                    import sys
-                    sys.exit(0)
-                else:
+            if download_progress["done"]:
+                if download_progress["error"]:
+                    # Handle error
                     progress_window.destroy()
                     tk.messagebox.showerror(
                         "Échec de la mise à jour",
-                        "Échec de l'installation de la mise à jour. L'application va se fermer."
+                        f"Une erreur s'est produite: {download_progress['error']}. L'application va se fermer."
+                    )
+                    logger.error(f"Error during mandatory update: {download_progress['error']}")
+                    return False
+                elif download_progress["installer_path"]:
+                    # Download completed successfully, start installation
+                    status_label.config(text="Installation en cours...")
+                    progress_bar.config(mode="indeterminate")
+                    progress_bar.start()
+                    percent_label.config(text="L'application redémarrera automatiquement.")
+                    progress_window.update()
+
+                    # Stop services before updating
+                    self.stop_service()
+
+                    # Apply update
+                    if self.update_checker.apply_update(download_progress["installer_path"]):
+                        # Give installer time to start before exiting
+                        import time
+                        time.sleep(2)
+
+                        # Exit application to allow installer to run
+                        import sys
+                        sys.exit(0)
+                    else:
+                        progress_window.destroy()
+                        tk.messagebox.showerror(
+                            "Échec de la mise à jour",
+                            "Échec de l'installation de la mise à jour. L'application va se fermer."
+                        )
+                        return False
+                else:
+                    # Download failed
+                    progress_window.destroy()
+                    tk.messagebox.showerror(
+                        "Échec de la mise à jour",
+                        "Échec du téléchargement de la mise à jour. L'application va se fermer."
                     )
                     return False
             else:
-                progress_window.destroy()
-                tk.messagebox.showerror(
-                    "Échec de la mise à jour",
-                    "Échec du téléchargement de la mise à jour. L'application va se fermer."
-                )
-                return False
-        except Exception as e:
-            progress_window.destroy()
-            tk.messagebox.showerror(
-                "Erreur de mise à jour",
-                f"Une erreur s'est produite: {str(e)}. L'application va se fermer."
-            )
-            logger.error(f"Error during mandatory update: {e}")
-            return False
+                # Continue checking progress
+                progress_window.after(100, check_progress)
+
+        # Start the progress checking loop
+        progress_window.after(100, check_progress)
+
+        # Start the main event loop for this window
+        progress_window.mainloop()
+
+        return True

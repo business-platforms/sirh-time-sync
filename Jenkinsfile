@@ -84,8 +84,8 @@ pipeline {
                     sh """
                         if ! command -v makensis &> /dev/null; then
                             echo "Installing NSIS..."
-                            sudo apt update
-                            sudo apt install -y nsis
+                            apt update
+                            apt install -y nsis
                         else
                             echo "NSIS already installed"
                         fi

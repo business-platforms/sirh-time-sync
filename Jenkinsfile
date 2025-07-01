@@ -80,11 +80,22 @@ pipeline {
                 script {
                     echo "Building installer for version ${env.VERSION}..."
 
+                    // Install NSIS if not available
+                    sh """
+                        if ! command -v makensis &> /dev/null; then
+                            echo "Installing NSIS..."
+                            sudo apt update
+                            sudo apt install -y nsis
+                        else
+                            echo "NSIS already installed"
+                        fi
+                    """
+
                     // Clean previous builds
                     sh "rm -rf dist/ build/ installer/"
 
                     // Run the build script
-                    sh "python ci_build.py --version ${env.VERSION}"
+                    sh "python3 ci_build.py --version ${env.VERSION}"
 
                     // Verify the installer was created
                     if (!fileExists(env.LOCAL_INSTALLER_PATH)) {

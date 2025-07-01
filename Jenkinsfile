@@ -20,7 +20,7 @@ pipeline {
         ADMIN_KEY = 'Vastness5-Ferocious1-Stooge7-Brewing9'
 
         // Server connection details
-        SERVER_HOST = 'timesync-dev.rh-partner.com'
+        SERVER_HOST = '157.173.97.199'
         SERVER_USER = 'root'
         SERVER_PATH = '/root/sirh/time-sync/downloads'
     }

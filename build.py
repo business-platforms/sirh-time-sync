@@ -38,6 +38,7 @@ os.makedirs("src/util", exist_ok=True)
 # Define PyInstaller arguments with pandas/numpy fixes and psutil
 args = [
     "main.py",
+    "--icon=assets/timesync-logo.ico",
     "--name=timesync",
     "--onefile",
     "--windowed",

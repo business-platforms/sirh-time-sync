@@ -1,0 +1,58 @@
+name: Build Time Attendance System
+
+on:
+  push:
+    paths:
+      - 'version.txt'
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read version from file
+        id: version
+        run: |
+          $version = Get-Content version.txt -Raw
+          $version = $version.Trim()
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "Version: $version"
+        shell: pwsh
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build installer
+        run: |
+          python ci_build.py --version ${{ env.VERSION }}
+
+      - name: Verify build output
+        run: |
+          echo "Checking build output..."
+          if (Test-Path "installer\timesync-setup-${{ env.VERSION }}.exe") {
+            $fileSize = (Get-Item "installer\timesync-setup-${{ env.VERSION }}.exe").Length
+            echo "✅ Installer created: timesync-setup-${{ env.VERSION }}.exe ($fileSize bytes)"
+          } else {
+            echo "❌ Installer not found!"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesync-installer-${{ env.VERSION }}
+          path: installer/*.exe
+          retention-days: 30

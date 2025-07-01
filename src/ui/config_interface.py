@@ -55,7 +55,7 @@ class ConfigInterface:
         self.user_import_interval_var = tk.IntVar(value=12)
 
         # Configure window basics
-        self.root.title("XXXXXConfiguration du Système de Présence")
+        self.root.title("Configuration du Système de Présence")
         self.root.geometry("900x750")
         self.root.minsize(850, 800)
         self.root.withdraw()  # Hide window during setup

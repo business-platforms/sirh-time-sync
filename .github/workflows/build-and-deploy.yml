@@ -2,8 +2,8 @@ name: Build Time Attendance System
 
 on:
   push:
-    paths:
-      - 'version.txt'
+#    paths:
+#      - 'version.txt'
     branches:
       - master
 

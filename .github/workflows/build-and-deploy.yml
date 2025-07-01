@@ -1,4 +1,4 @@
-name: Build Time Attendance System
+name: Build and Deploy Time Attendance System
 
 on:
   push:
@@ -7,8 +7,15 @@ on:
     branches:
       - master
 
+env:
+  # Non-sensitive configuration variables
+  SERVER_HOST: "157.173.97.199"
+  SERVER_USER: "root"
+  SERVER_PATH: "/root/sirh/time-sync/downloads"
+  UPDATE_SERVER_URL: "http://timesync-dev.rh-partner.com"
+
 jobs:
-  build:
+  build-and-deploy:
     runs-on: windows-latest
 
     steps:
@@ -21,7 +28,27 @@ jobs:
           $version = Get-Content version.txt -Raw
           $version = $version.Trim()
           echo "VERSION=$version" >> $env:GITHUB_ENV
-          echo "Version: $version"
+          echo "INSTALLER_NAME=timesync-setup-$version.exe" >> $env:GITHUB_ENV
+          echo "LOCAL_INSTALLER_PATH=installer/timesync-setup-$version.exe" >> $env:GITHUB_ENV
+          echo "📋 Version: $version"
+          echo "📦 Installer: timesync-setup-$version.exe"
+        shell: pwsh
+
+      # Check if version exists on server (replicate Jenkins check)
+      - name: Check existing version on server
+        run: |
+          echo "🔍 Checking if version ${{ env.VERSION }} already exists on server..."
+          
+          # Use SSH to check if file exists
+          $checkResult = ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "if [ -f ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }} ]; then echo 'EXISTS'; else echo 'NOT_EXISTS'; fi"
+          
+          if ($checkResult -eq "EXISTS") {
+            echo "❌ Version ${{ env.VERSION }} already exists on server."
+            echo "To overwrite, delete the existing file first or use a different version."
+            exit 1
+          } else {
+            echo "✅ Version ${{ env.VERSION }} does not exist. Proceeding with build."
+          }
         shell: pwsh
 
       - name: Setup Python
@@ -36,23 +63,110 @@ jobs:
 
       - name: Build installer
         run: |
+          echo "🔨 Building installer for version ${{ env.VERSION }}..."
           python ci_build.py --version ${{ env.VERSION }}
 
       - name: Verify build output
         run: |
-          echo "Checking build output..."
-          if (Test-Path "installer\timesync-setup-${{ env.VERSION }}.exe") {
-            $fileSize = (Get-Item "installer\timesync-setup-${{ env.VERSION }}.exe").Length
-            echo "✅ Installer created: timesync-setup-${{ env.VERSION }}.exe ($fileSize bytes)"
+          echo "✅ Checking build output..."
+          if (Test-Path "${{ env.LOCAL_INSTALLER_PATH }}") {
+            $fileSize = (Get-Item "${{ env.LOCAL_INSTALLER_PATH }}").Length
+            $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+            echo "✅ Installer created: ${{ env.INSTALLER_NAME }} ($fileSizeMB MB)"
+            echo "BUILD_SUCCESS=true" >> $env:GITHUB_ENV
           } else {
-            echo "❌ Installer not found!"
+            echo "❌ Installer not found at: ${{ env.LOCAL_INSTALLER_PATH }}"
             exit 1
           }
         shell: pwsh
 
-      - name: Upload build artifacts
+      # === DEPLOYMENT SECTION ===
+      - name: Setup SSH key
+        run: |
+          echo "🔑 Setting up SSH key..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+        shell: bash
+
+      - name: Deploy installer to server
+        run: |
+          echo "🚀 Deploying ${{ env.INSTALLER_NAME }} to server..."
+          
+          # Copy file to server using SCP
+          scp -i ~/.ssh/deploy_key "${{ env.LOCAL_INSTALLER_PATH }}" ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.SERVER_PATH }}/
+          
+          if ($LASTEXITCODE -eq 0) {
+            echo "✅ File uploaded successfully"
+          } else {
+            echo "❌ Upload failed"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Set file permissions on server
+        run: |
+          echo "🔒 Setting file permissions..."
+          
+          # Set proper permissions
+          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "chmod 644 ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }}"
+          
+          # Verify file was uploaded correctly
+          $remoteSize = ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "stat -c%s ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }}"
+          
+          echo "✅ Deployment successful: ${{ env.INSTALLER_NAME }} uploaded ($remoteSize bytes)"
+        shell: pwsh
+
+      - name: Register version with update server
+        run: |
+          echo "📝 Registering version ${{ env.VERSION }} with update server..."
+          
+          # Prepare API request
+          $payload = @{
+            version = "${{ env.VERSION }}"
+            notes = "Automated release from GitHub Actions"
+          } | ConvertTo-Json
+          
+          # Make API call
+          try {
+            $response = Invoke-RestMethod -Uri "${{ env.UPDATE_SERVER_URL }}/api/admin/versions/add" `
+              -Method POST `
+              -Headers @{
+                'admin-key' = "${{ secrets.ADMIN_KEY }}"
+                'Content-Type' = 'application/json'
+              } `
+              -Body $payload
+            
+            echo "✅ Version ${{ env.VERSION }} registered successfully"
+            echo "📊 Response: $($response | ConvertTo-Json -Compress)"
+            
+          } catch {
+            echo "❌ Failed to register version: $($_.Exception.Message)"
+            echo "Response: $($_.Exception.Response)"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Cleanup SSH key
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
+        shell: bash
+
+      - name: Upload build artifacts (backup)
+        if: env.BUILD_SUCCESS == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: timesync-installer-${{ env.VERSION }}
           path: installer/*.exe
           retention-days: 30
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "📦 Version: ${{ env.VERSION }}"
+          echo "📁 Installer: ${{ env.INSTALLER_NAME }}"
+          echo "🔗 Download URL: ${{ env.UPDATE_SERVER_URL }}/api/updates/download"
+        shell: pwsh

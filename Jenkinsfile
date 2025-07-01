@@ -76,18 +76,19 @@ pipeline {
         }
 
         stage('Build') {
-            agent {
-                docker {
-                    image 'python:3.10-slim'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
             steps {
                 script {
                     echo "Building installer for version ${env.VERSION}..."
 
-                    // Install NSIS if not available
+                    // Install Python and NSIS if not available
                     sh """
+                        # Install Python3 if not available
+                        if ! command -v python3 &> /dev/null; then
+                            apt update
+                            apt install -y python3 python3-pip
+                        fi
+
+                        # Install NSIS if not available
                         if ! command -v makensis &> /dev/null; then
                             echo "Installing NSIS..."
                             apt update
@@ -95,6 +96,9 @@ pipeline {
                         else
                             echo "NSIS already installed"
                         fi
+
+                        # Install Python dependencies
+                        pip3 install -r requirements.txt
                     """
 
                     // Clean previous builds

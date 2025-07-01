@@ -287,7 +287,7 @@ The application creates detailed logs in the `logs` directory:
 
 ### Command Line Options
 
-The application can be run with the following command line options:
+The application can be run with the following command line options: 
 
 - `--config`: Open only the configuration interface
 - `--start`: Start the collection service in command line mode

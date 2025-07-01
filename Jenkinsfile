@@ -85,7 +85,7 @@ pipeline {
                         # Install Python3 if not available
                         if ! command -v python3 &> /dev/null; then
                             apt update
-                            apt install -y python3 python3-pip
+                            apt install -y python3 python3-venv
                         fi
 
                         # Install NSIS if not available
@@ -96,10 +96,15 @@ pipeline {
                         else
                             echo "NSIS already installed"
                         fi
+                    
+                        # Set up Python virtual environment
+                        python3 -m venv .venv
+                        . .venv/bin/activate
 
                         # Install Python dependencies
-                        pip3 install -r requirements.txt
+                        pip install -r requirements.txt
                     """
+
 
                     // Clean previous builds
                     sh "rm -rf dist/ build/ installer/"

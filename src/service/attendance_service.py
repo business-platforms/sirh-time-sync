@@ -9,6 +9,7 @@ from typing import List, Dict, Optional, Tuple, Any
 from src.domain.models import AttendanceRecord, APIUploadLog, ProcessedStatus, PunchType
 from src.data.repositories import AttendanceRepository, LogRepository
 from src.service.device_service import DeviceService
+from src.util.paths import get_exports_path, get_export_file_path
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,13 @@ class AttendanceService:
         self.log_repository = log_repository
         self.device_service = device_service
 
-        # Ensure exports directory exists
-        os.makedirs('exports', exist_ok=True)
+        # Ensure exports directory exists using centralized path management
+        try:
+            exports_dir = get_exports_path()
+            logger.info(f"Exports directory initialized: {exports_dir}")
+        except Exception as e:
+            logger.error(f"Failed to initialize exports directory: {e}")
+            raise
 
     def collect_attendance(self) -> int:
         """Collect attendance data from device and save to database."""
@@ -65,7 +71,10 @@ class AttendanceService:
             # Create a unique filename
             batch_id = str(uuid.uuid4())[:8]
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-            filename = f"exports/attendance_{timestamp}_{batch_id}.xlsx"
+            filename = f"attendance_{timestamp}_{batch_id}.xlsx"
+
+            # Get the full file path using centralized path management
+            file_path = get_export_file_path(filename)
 
             # Create a DataFrame for export
             export_data = [
@@ -85,13 +94,13 @@ class AttendanceService:
 
             # Create DataFrame and export to Excel
             export_df = pd.DataFrame(export_data)
-            export_df.to_excel(filename, index=False)
+            export_df.to_excel(file_path, index=False)
 
-            logger.info(f"Created Excel report with {len(records)} records at {filename}")
+            logger.info(f"Created Excel report with {len(records)} records at {file_path}")
 
             return {
                 'batch_id': batch_id,
-                'file_path': filename,
+                'file_path': file_path,
                 'records_count': len(records)
             }
         except Exception as e:

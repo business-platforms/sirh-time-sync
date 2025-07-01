@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional
 
 from src.data.repositories import ConfigRepository
 from src.util.compute_checksum import compute_sha256
-from src.util.paths import get_database_path
+from src.util.paths import get_database_path, get_temp_path
 
 logger = logging.getLogger(__name__)
 
@@ -158,26 +158,32 @@ class UpdateChecker:
     def check_update_prerequisites(self, file_size: int) -> tuple[bool, str]:
         """Check if system meets update requirements."""
         try:
-            # Check available disk space
+            # Use both system temp and app temp for space checks
             temp_dir = tempfile.gettempdir()
-            free_space = shutil.disk_usage(temp_dir).free
+            app_temp_dir = get_temp_path()
+
+            # Check available disk space for both locations
+            system_free_space = shutil.disk_usage(temp_dir).free
+            app_free_space = shutil.disk_usage(app_temp_dir).free
             required_space = file_size * 3
 
-            if free_space < required_space:
-                error_msg = f"Insufficient disk space. Required: {required_space // 1024 // 1024}MB, Available: {free_space // 1024 // 1024}MB"
+            min_free_space = min(system_free_space, app_free_space)
+            if min_free_space < required_space:
+                error_msg = f"Insufficient disk space. Required: {required_space // 1024 // 1024}MB, Available: {min_free_space // 1024 // 1024}MB"
                 logger.error(error_msg)
                 return False, error_msg
 
-            # Check if we can write to temp directory
-            test_file = os.path.join(temp_dir, 'timesync_write_test')
-            try:
-                with open(test_file, 'w') as f:
-                    f.write('test')
-                os.remove(test_file)
-            except Exception as e:
-                error_msg = f"Cannot write to temporary directory: {e}"
-                logger.error(error_msg)
-                return False, error_msg
+            # Check if we can write to both temp directories
+            for test_dir in [temp_dir, app_temp_dir]:
+                test_file = os.path.join(test_dir, 'timesync_write_test')
+                try:
+                    with open(test_file, 'w') as f:
+                        f.write('test')
+                    os.remove(test_file)
+                except Exception as e:
+                    error_msg = f"Cannot write to directory {test_dir}: {e}"
+                    logger.error(error_msg)
+                    return False, error_msg
 
             # Check if update is already in progress
             update_lock = os.path.join(temp_dir, 'timesync_update_lock')
@@ -209,7 +215,7 @@ class UpdateChecker:
         temp_file = None
 
         try:
-            # Create update lock file
+            # Create update lock file in system temp
             temp_dir = tempfile.gettempdir()
             update_lock = os.path.join(temp_dir, 'timesync_update_lock')
             with open(update_lock, 'w') as f:
@@ -232,7 +238,8 @@ class UpdateChecker:
             else:
                 logger.info(f"Total update file size: {total_size} bytes.")
 
-            # Create temp file with .exe extension in a dedicated update directory
+            # Create temp file with .exe extension in system temp (installer needs to run from there)
+            # But we could also create a updates subdirectory in app temp for organization
             update_dir = os.path.join(temp_dir, 'timesync_updates')
             os.makedirs(update_dir, exist_ok=True)
 
@@ -362,7 +369,7 @@ class UpdateChecker:
             else:
                 app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-            # Create verification file to track update progress
+            # Create verification file to track update progress (use system temp for this)
             temp_dir = tempfile.gettempdir()
             verification_file = os.path.join(temp_dir, 'timesync_update_pending')
 

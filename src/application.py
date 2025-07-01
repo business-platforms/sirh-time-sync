@@ -1,4 +1,3 @@
-# src/application.py
 import logging
 import os
 import threading
@@ -20,6 +19,7 @@ from src.service.sync_service import SyncService
 from src.service.scheduler_service import SchedulerService
 from src.data.database_initializer import DatabaseInitializer
 from src.update_checker import UpdateChecker
+from src.util.paths import get_log_file_path, initialize_app_directories
 
 logger = logging.getLogger(__name__)
 
@@ -89,19 +89,38 @@ class Application:
             logger.error("Failed to initialize database. Application may not function correctly.")
 
     def setup_logging(self) -> None:
-        """Set up logging configuration."""
-        # Create logs directory if it doesn't exist
-        os.makedirs('logs', exist_ok=True)
+        """Set up logging configuration using centralized path management."""
+        try:
+            # Initialize all application directories first
+            app_dirs = initialize_app_directories()
 
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(f'logs/attendance_system_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
-                logging.StreamHandler()
-            ]
-        )
+            # Get the log file path using centralized path management
+            log_file_path = get_log_file_path()
+
+            # Configure logging
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                handlers=[
+                    logging.FileHandler(log_file_path, encoding='utf-8'),
+                    logging.StreamHandler()
+                ]
+            )
+
+            # Log successful initialization
+            logger.info("Application logging initialized successfully")
+            logger.info(f"Log file: {log_file_path}")
+            logger.info(f"Application directories initialized: {list(app_dirs.keys())}")
+
+        except Exception as e:
+            # Fallback to basic console logging if file logging fails
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                handlers=[logging.StreamHandler()]
+            )
+            print(f"Warning: Failed to setup file logging: {e}")
+            print("Falling back to console-only logging")
 
     def setup_dependencies(self) -> None:
         """Set up dependency injection container."""

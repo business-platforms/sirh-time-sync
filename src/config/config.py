@@ -1,4 +1,5 @@
 # config.py - Configuration settings
+
 # ZK device configuration
 ZK_TIMEOUT = 5
 ZK_PASSWORD = 0

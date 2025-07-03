@@ -190,7 +190,7 @@ jobs:
       - name: Build installer with profile
         run: |
           echo "🔨 Building installer for ${{ env.PROFILE }} environment..."
-          python ci_build_multienv.py --version ${{ env.VERSION }} --profile ${{ env.PROFILE }}
+          python ci_build.py --version ${{ env.VERSION }} --profile ${{ env.PROFILE }}
 
       - name: Verify build output
         run: |

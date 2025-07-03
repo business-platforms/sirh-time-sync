@@ -61,6 +61,7 @@ jobs:
         run: |
           # Determine version file based on environment
           VERSION_FILE="${{ steps.detect.outputs.version_file }}"
+          echo "📄 Using version file: $VERSION_FILE"
           
           # Fallback to main version.txt if profile-specific doesn't exist
           if [[ ! -f "$VERSION_FILE" ]]; then

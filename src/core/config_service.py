@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Dict, Any, Optional
 
-from src.config.config import API_URL
+from src.core.profile_manager import ProfileManager
 from src.domain.models import Config
 from src.data.repositories import ConfigRepository
 from src.service.device_service import DeviceConnection
@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 class ConfigurationService:
     """Service for managing system configuration."""
 
-    def __init__(self, config_repository: ConfigRepository, api_url: str = None):
+    def __init__(self, config_repository: ConfigRepository):
         self.config_repository = config_repository
-        self._api_url = api_url or os.environ.get('API_URL', API_URL)
+
+        profile_manager = ProfileManager()
+        self._api_url = profile_manager.get_api_url()
 
     @property
     def api_url(self) -> str:

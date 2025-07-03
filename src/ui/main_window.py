@@ -15,6 +15,7 @@ from src.ui.config_interface import ConfigInterface
 from src.ui.records_interface import RecordsInterface
 from src.ui.users_interface import UsersInterface
 from src.application import Application
+from src.core.profile_manager import ProfileManager
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class MainWindow:
 
     def __init__(self, application: Application):
         self.app = application
+        self.profile_manager = ProfileManager()  # Add profile manager
         self.icon = None  # System tray icon
         self.tray_thread = None  # Thread for tray icon
         self.exit_requested = False  # Flag to track exit requests
@@ -245,9 +247,14 @@ class MainWindow:
                 self.stop_button.config(state=tk.DISABLED)
 
     def setup_ui(self):
-        """Set up the modern user interface with responsive layout."""
-        # Configure window basics
-        self.root.title("Panneau de Contrôle du Système de Présence")
+        """Set up the modern user interface with environment awareness."""
+        # Get environment-specific configuration
+        ui_config = self.profile_manager.get_ui_config()
+
+        # Configure window title with environment suffix
+        base_title = "Panneau de Contrôle du Système de Présence"
+        window_title = base_title + ui_config.window_title_suffix
+        self.root.title(window_title)
 
         # Open in fullscreen by default
         try:
@@ -294,13 +301,23 @@ class MainWindow:
         header_frame = ttk.Frame(self.root, style='Header.TFrame')
         header_frame.pack(fill=tk.X, side=tk.TOP)
 
+        # Add environment indicator to header
+        self.create_environment_indicator(header_frame)
+
         # Add window controls (minimize, maximize, close) - these would need custom implementation
         controls_frame = ttk.Frame(header_frame, style='Header.TFrame')
         controls_frame.pack(side=tk.RIGHT, padx=10)
 
-        # Header title
-        title_label = ttk.Label(header_frame, text="Panneau de Contrôle du Système de Présence",
-                                style='Header.TLabel')
+        # Header title with environment info
+        ui_config = self.profile_manager.get_ui_config()
+        base_title = "Panneau de Contrôle du Système de Présence"
+
+        if ui_config.show_environment_indicator:
+            display_title = f"{base_title} - {self.profile_manager.get_environment_name().upper()}"
+        else:
+            display_title = base_title
+
+        title_label = ttk.Label(header_frame, text=display_title, style='Header.TLabel')
         title_label.pack(side=tk.LEFT, padx=15, pady=10)
 
         # Main content area with increased padding
@@ -371,19 +388,25 @@ class MainWindow:
         self.root.deiconify()
 
     def setup_styles(self):
-        """Configure ttk styles for the application."""
+        """Configure ttk styles with environment-specific colors."""
         style = ttk.Style()
         style.theme_use('clam')
 
-        # Configure styles
+        # Get environment-specific UI configuration
+        ui_config = self.profile_manager.get_ui_config()
+
+        # Use environment-specific header color
+        header_color = ui_config.header_color
+
+        # Configure styles with environment colors
         style.configure('TFrame', background=self.COLOR_BACKGROUND)
-        style.configure('Header.TFrame', background=self.COLOR_PRIMARY)
+        style.configure('Header.TFrame', background=header_color)  # Use profile color
         style.configure('Card.TFrame', background=self.COLOR_CARD, relief='flat', borderwidth=0)
 
         style.configure('TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 10))
         style.configure('Card.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 10))
-        style.configure('Header.TLabel', background=self.COLOR_PRIMARY, foreground='white',
-                        font=('Segoe UI', 12, 'bold'))
+        style.configure('Header.TLabel', background=header_color, foreground='white',
+                        font=('Segoe UI', 12, 'bold'))  # Use profile color
         style.configure('Title.TLabel', background=self.COLOR_BACKGROUND, font=('Segoe UI', 16, 'bold'))
         style.configure('SectionTitle.TLabel', background=self.COLOR_CARD, font=('Segoe UI', 12, 'bold'))
 
@@ -418,6 +441,23 @@ class MainWindow:
         # Card styles
         style.configure('Card.TLabelframe', background=self.COLOR_CARD, borderwidth=0)
         style.configure('Card.TLabelframe.Label', background=self.COLOR_CARD)
+
+    def create_environment_indicator(self, parent):
+        """Create environment indicator badge if needed."""
+        ui_config = self.profile_manager.get_ui_config()
+
+        if ui_config.show_environment_indicator and ui_config.environment_badge:
+            # Create environment badge
+            badge_frame = ttk.Frame(parent, style='Header.TFrame')
+            badge_frame.pack(side=tk.RIGHT, padx=10, pady=5)
+
+            badge_label = ttk.Label(
+                badge_frame,
+                text=ui_config.environment_badge,
+                style='Header.TLabel',
+                font=('Segoe UI', 10, 'bold')
+            )
+            badge_label.pack(padx=8, pady=2)
 
     def create_responsive_layout(self):
         """Create responsive layout based on window width."""

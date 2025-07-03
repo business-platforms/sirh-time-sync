@@ -1,0 +1,18 @@
+{
+  "environment": "deve",
+  "api_url": "https://app-dev.rh-partner.com",
+  "update_server_url": "https://timesync-dev.rh-partner.com/api/updates",
+  "database_suffix": "_dev",
+  "ui_config": {
+    "header_color": "#FF6B35",
+    "environment_badge": "DEV",
+    "show_environment_indicator": true,
+    "window_title_suffix": " [DEVELOPMENT]"
+  },
+  "deployment": {
+    "server_host": "157.173.97.199",
+    "server_path": "/root/sirh/time-sync/downloads",
+    "ssh_key_secret": "SSH_PRIVATE_KEY_DEV",
+    "admin_key_secret": "ADMIN_KEY_DEV"
+  }
+}

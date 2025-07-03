@@ -6,9 +6,9 @@ from tkinter import messagebox, ttk
 from datetime import datetime
 from typing import Dict, Any
 
-from src.config.config import API_URL
 from src.core.dependency_container import DependencyContainer
 from src.core.config_service import ConfigurationService
+from src.core.profile_manager import ProfileManager
 from src.data.sqlite_repositories import (
     SQLiteConfigRepository, SQLiteAttendanceRepository, SQLiteLogRepository
 )
@@ -28,14 +28,17 @@ class Application:
     """Main application class that coordinates all service."""
 
     def __init__(self):
+        self.profile_manager = ProfileManager()
         self.container = DependencyContainer()
         self._running = False  # Track running state
         self.setup_logging()
         self.initialize_database()
         self.setup_dependencies()
 
-        self.update_checker = UpdateChecker(self.container.get('config_repository'),
-                                            "https://timesync-dev.rh-partner.com/api/updates")
+        self.update_checker = UpdateChecker(
+            self.container.get('config_repository'),
+            self.profile_manager.get_update_server_url()
+        )
 
         # Check for completed updates on startup
         self.verify_update_on_startup()
@@ -125,17 +128,19 @@ class Application:
     def setup_dependencies(self) -> None:
         """Set up dependency injection container."""
         # Configure API URL
-        api_url = os.environ.get('API_URL', API_URL)
+        api_url = self.profile_manager.get_api_url()
 
         # Register repositories
         self.container.register('config_repository', SQLiteConfigRepository())
         self.container.register('attendance_repository', SQLiteAttendanceRepository())
         self.container.register('log_repository', SQLiteLogRepository())
 
+        # Register profile manager
+        self.container.register('profile_manager', self.profile_manager)
+
         # Register configuration service
         self.container.register('config_service', ConfigurationService(
-            self.container.get('config_repository'),
-            api_url
+            self.container.get('config_repository')
         ))
 
         # Register device service

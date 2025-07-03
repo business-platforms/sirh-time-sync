@@ -1,0 +1,18 @@
+{
+  "environment": "prod",
+  "api_url": "https://app.rh-partner.com",
+  "update_server_url": "https://timesync.rh-partner.com/api/updates",
+  "database_suffix": "",
+  "ui_config": {
+    "header_color": "#24398E",
+    "environment_badge": null,
+    "show_environment_indicator": false,
+    "window_title_suffix": ""
+  },
+  "deployment": {
+    "server_host": "75.119.129.19",
+    "server_path": "/root/sirh/time-sync-prod/downloads",
+    "ssh_key_secret": "SSH_PRIVATE_KEY_PROD",
+    "admin_key_secret": "ADMIN_KEY_PROD"
+  }
+}

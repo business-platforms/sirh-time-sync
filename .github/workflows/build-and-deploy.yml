@@ -123,19 +123,19 @@ jobs:
       # === SSH SETUP ===
       - name: Setup SSH key
         run: |
-          echo "🔑 Setting up SSH key for ${{ env.PROFILE }} for HOST: ${{ vars.DEV_SERVER_HOST }}"
+          echo "🔑 Setting up SSH key for ${{ env.PROFILE }} for HOST: ${{ secrets.DEV_SERVER_HOST }}"
           mkdir -p ~/.ssh
           
           # Use environment-specific SSH key
           if [[ "${{ env.PROFILE }}" == "dev" ]]; then
             echo "${{ secrets.SSH_PRIVATE_KEY_DEV }}" > ~/.ssh/deploy_key
-            SERVER_HOST="${{ vars.DEV_SERVER_HOST }}"
+            SERVER_HOST="${{ secrets.DEV_SERVER_HOST }}"
           elif [[ "${{ env.PROFILE }}" == "staging" ]]; then
             echo "${{ secrets.SSH_PRIVATE_KEY_STAGING }}" > ~/.ssh/deploy_key
-            SERVER_HOST="${{ vars.STAGING_SERVER_HOST }}"
+            SERVER_HOST="${{ secrets.STAGING_SERVER_HOST }}"
           elif [[ "${{ env.PROFILE }}" == "prod" ]]; then
             echo "${{ secrets.SSH_PRIVATE_KEY_PROD }}" > ~/.ssh/deploy_key
-            SERVER_HOST="${{ vars.PROD_SERVER_HOST }}"
+            SERVER_HOST="${{ secrets.PROD_SERVER_HOST }}"
           fi
           
           chmod 600 ~/.ssh/deploy_key

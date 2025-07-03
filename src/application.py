@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Dict, Any
 
+
 from src.core.dependency_container import DependencyContainer
 from src.core.config_service import ConfigurationService
 from src.core.profile_manager import ProfileManager

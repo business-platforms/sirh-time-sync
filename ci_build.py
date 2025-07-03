@@ -7,13 +7,33 @@ import json
 from datetime import datetime
 
 
+def safe_print(message):
+    """Print message safely, handling encoding issues."""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Fallback: remove non-ASCII characters
+        ascii_message = message.encode('ascii', 'ignore').decode('ascii')
+        print(ascii_message)
+
+
 def load_profile_config(profile_name):
     """Load profile configuration from JSON file."""
-    profile_path = f"profiles/{profile_name}.json"
+    # Map short names to full names for file lookup
+    profile_mapping = {
+        'dev': 'development',
+        'development': 'development',
+        'staging': 'staging',
+        'prod': 'production',
+        'production': 'production'
+    }
+
+    full_profile_name = profile_mapping.get(profile_name, profile_name)
+    profile_path = f"profiles/{full_profile_name}.json"
 
     if not os.path.exists(profile_path):
-        print(f"Profile not found: {profile_path}")
-        print("Using production defaults")
+        safe_print(f"Profile not found: {profile_path}")
+        safe_print("Using production defaults")
         return get_production_profile()
 
     with open(profile_path, "r", encoding='utf-8') as f:
@@ -55,7 +75,7 @@ def embed_profile_in_build(profile_config, version, profile_name):
     with open(embedded_path, "w", encoding='utf-8') as f:
         json.dump(embedded_config, f, indent=2)
 
-    print(f"✅ Embedded profile: {profile_config['environment']} -> {embedded_path}")
+    safe_print(f"[OK] Embedded profile: {profile_config['environment']} -> {embedded_path}")
     return embedded_path
 
 
@@ -77,9 +97,9 @@ def update_build_script_version(version):
         with open(build_script_path, "w") as f:
             f.write('\n'.join(lines))
 
-        print(f"Updated build.py with version {version}")
+        safe_print(f"[OK] Updated build.py with version {version}")
     else:
-        print(f"Warning: {build_script_path} not found")
+        safe_print(f"[WARNING] {build_script_path} not found")
 
 
 def update_installer_version(version, profile_name):
@@ -97,7 +117,7 @@ def update_installer_version(version, profile_name):
         )
 
         # Update app name for non-production environments
-        if profile_name != "production":
+        if profile_name not in ['prod', 'production']:
             env_name = profile_name.upper()
             script_content = script_content.replace(
                 '#define MyAppName "Time Attendance System"',
@@ -113,39 +133,39 @@ def update_installer_version(version, profile_name):
         with open(inno_script, "w", encoding='utf-8') as f:
             f.write(script_content)
 
-        print(f"Updated {inno_script} for {profile_name} environment")
+        safe_print(f"[OK] Updated {inno_script} for {profile_name} environment")
     else:
-        print(f"Warning: {inno_script} not found")
+        safe_print(f"[WARNING] {inno_script} not found")
 
 
 def main():
     parser = argparse.ArgumentParser(description='Build the Time Attendance System application')
     parser.add_argument('--version', required=True, help='Version number (e.g., 1.0.0)')
     parser.add_argument('--profile', default='dev',
-                        choices=['dev', 'staging', 'prod'],
+                        choices=['dev', 'development', 'staging', 'prod', 'production'],
                         help='Environment profile to build for (default: dev)')
     args = parser.parse_args()
 
     version = args.version
     profile_name = args.profile
 
-    print("Building Time Attendance System")
-    print(f"Version: {version}")
-    print(f"Profile: {profile_name}")
-    print(f"Build Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("-" * 50)
+    safe_print("Building Time Attendance System")
+    safe_print(f"Version: {version}")
+    safe_print(f"Profile: {profile_name}")
+    safe_print(f"Build Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    safe_print("-" * 50)
 
     try:
-        print(f"Loading profile configuration: {profile_name}")
+        safe_print(f"Loading profile configuration: {profile_name}")
         profile_config = load_profile_config(profile_name)
-        print(f"Environment: {profile_config['environment']}")
-        print(f"API URL: {profile_config['api_url']}")
-        print(f"Update Server: {profile_config['update_server_url']}")
+        safe_print(f"Environment: {profile_config['environment']}")
+        safe_print(f"API URL: {profile_config['api_url']}")
+        safe_print(f"Update Server: {profile_config['update_server_url']}")
 
         embed_profile_in_build(profile_config, version, profile_name)
 
     except Exception as e:
-        print(f"Error loading profile: {e}")
+        safe_print(f"Error loading profile: {e}")
         return 1
 
     update_build_script_version(version)
@@ -153,7 +173,7 @@ def main():
 
     with open("version.txt", "w") as f:
         f.write(version)
-    print(f"Created root version.txt with version {version}")
+    safe_print(f"[OK] Created root version.txt with version {version}")
 
     if os.path.exists("dist"):
         shutil.rmtree("dist")
@@ -163,13 +183,13 @@ def main():
     os.makedirs("dist", exist_ok=True)
     os.makedirs("installer_files", exist_ok=True)
 
-    print("Running PyInstaller...")
+    safe_print("Running PyInstaller...")
 
     try:
         subprocess.check_call([sys.executable, "build.py"])
-        print("PyInstaller build completed successfully")
+        safe_print("[OK] PyInstaller build completed successfully")
     except subprocess.CalledProcessError as e:
-        print(f"PyInstaller build failed: {e}")
+        safe_print(f"[ERROR] PyInstaller build failed: {e}")
         return 1
 
     required_files = [
@@ -185,29 +205,30 @@ def main():
             missing_files.append(file_path)
 
     if missing_files:
-        print(f"Error: Missing required files: {missing_files}")
+        safe_print(f"[ERROR] Missing required files: {missing_files}")
         return 1
 
-    print("All required files present, proceeding with installer creation...")
+    safe_print("[OK] All required files present, proceeding with installer creation...")
 
-    print("Running Inno Setup...")
+    safe_print("Running Inno Setup...")
     inno_script = os.path.abspath("timesync-installer.iss")
 
     iscc_path = "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe"
     if not os.path.exists(iscc_path):
         iscc_path = "C:\\Program Files\\Inno Setup 6\\ISCC.exe"
         if not os.path.exists(iscc_path):
-            print("Error: Could not find Inno Setup Compiler (ISCC.exe)")
+            safe_print("[ERROR] Could not find Inno Setup Compiler (ISCC.exe)")
             return 1
 
     try:
         subprocess.check_call([iscc_path, inno_script])
-        print("Inno Setup completed successfully")
+        safe_print("[OK] Inno Setup completed successfully")
     except subprocess.CalledProcessError as e:
-        print(f"Inno Setup failed: {e}")
+        safe_print(f"[ERROR] Inno Setup failed: {e}")
         return 1
 
-    if profile_name == "production":
+    # Determine installer name based on profile
+    if profile_name in ['prod', 'production']:
         installer_name = f"timesync-setup-{version}.exe"
         latest_name = "timesync-setup-latest.exe"
     else:
@@ -222,19 +243,19 @@ def main():
 
         installer_size = os.path.getsize(installer_path) / 1024 / 1024
 
-        print("=" * 50)
-        print("BUILD COMPLETED SUCCESSFULLY")
-        print("=" * 50)
-        print(f"Installer: {installer_name} ({installer_size:.2f} MB)")
-        print(f"Latest Copy: {latest_name}")
-        print(f"Environment: {profile_config['environment']}")
-        print(f"API URL: {profile_config['api_url']}")
-        print(f"Update Server: {profile_config['update_server_url']}")
-        print(f"Database Suffix: '{profile_config.get('database_suffix', '')}'")
+        safe_print("=" * 50)
+        safe_print("BUILD COMPLETED SUCCESSFULLY")
+        safe_print("=" * 50)
+        safe_print(f"Installer: {installer_name} ({installer_size:.2f} MB)")
+        safe_print(f"Latest Copy: {latest_name}")
+        safe_print(f"Environment: {profile_config['environment']}")
+        safe_print(f"API URL: {profile_config['api_url']}")
+        safe_print(f"Update Server: {profile_config['update_server_url']}")
+        safe_print(f"Database Suffix: '{profile_config.get('database_suffix', '')}'")
 
         return 0
     else:
-        print(f"Error: Installer not found at {installer_path}")
+        safe_print(f"[ERROR] Installer not found at {installer_path}")
         return 1
 
 

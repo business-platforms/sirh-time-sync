@@ -12,8 +12,8 @@ def load_profile_config(profile_name):
     profile_path = f"profiles/{profile_name}.json"
 
     if not os.path.exists(profile_path):
-        print(f"⚠️ Profile not found: {profile_path}")
-        print("📋 Using production defaults")
+        print(f"Profile not found: {profile_path}")
+        print("Using production defaults")
         return get_production_profile()
 
     with open(profile_path, "r", encoding='utf-8') as f:
@@ -77,9 +77,9 @@ def update_build_script_version(version):
         with open(build_script_path, "w") as f:
             f.write('\n'.join(lines))
 
-        print(f"✅ Updated build.py with version {version}")
+        print(f"Updated build.py with version {version}")
     else:
-        print(f"⚠️ Warning: {build_script_path} not found")
+        print(f"Warning: {build_script_path} not found")
 
 
 def update_installer_version(version, profile_name):
@@ -113,9 +113,9 @@ def update_installer_version(version, profile_name):
         with open(inno_script, "w", encoding='utf-8') as f:
             f.write(script_content)
 
-        print(f"✅ Updated {inno_script} for {profile_name} environment")
+        print(f"Updated {inno_script} for {profile_name} environment")
     else:
-        print(f"⚠️ Warning: {inno_script} not found")
+        print(f"Warning: {inno_script} not found")
 
 
 def main():
@@ -129,58 +129,49 @@ def main():
     version = args.version
     profile_name = args.profile
 
-    print(f"🚀 Building Time Attendance System")
-    print(f"📋 Version: {version}")
-    print(f"🎯 Profile: {profile_name}")
-    print(f"⏰ Build Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("Building Time Attendance System")
+    print(f"Version: {version}")
+    print(f"Profile: {profile_name}")
+    print(f"Build Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("-" * 50)
 
     try:
-        print(f"📖 Loading profile configuration: {profile_name}")
+        print(f"Loading profile configuration: {profile_name}")
         profile_config = load_profile_config(profile_name)
-        print(f"✅ Environment: {profile_config['environment']}")
-        print(f"🌐 API URL: {profile_config['api_url']}")
-        print(f"🔄 Update Server: {profile_config['update_server_url']}")
+        print(f"Environment: {profile_config['environment']}")
+        print(f"API URL: {profile_config['api_url']}")
+        print(f"Update Server: {profile_config['update_server_url']}")
 
-        # Embed profile in build
         embed_profile_in_build(profile_config, version, profile_name)
 
     except Exception as e:
-        print(f"❌ Error loading profile: {e}")
+        print(f"Error loading profile: {e}")
         return 1
 
-    # Update version in build script
     update_build_script_version(version)
-
-    # Update version in installer script
     update_installer_version(version, profile_name)
 
-    # Create version file in root directory (will be used by build.py)
     with open("version.txt", "w") as f:
         f.write(version)
-    print(f"✅ Created root version.txt with version {version}")
+    print(f"Created root version.txt with version {version}")
 
-    # Clean previous build
     if os.path.exists("dist"):
         shutil.rmtree("dist")
     if os.path.exists("build"):
         shutil.rmtree("build")
 
-    # Create necessary directories
     os.makedirs("dist", exist_ok=True)
     os.makedirs("installer_files", exist_ok=True)
 
-    # Run PyInstaller build
-    print("🔨 Running PyInstaller...")
+    print("Running PyInstaller...")
 
     try:
         subprocess.check_call([sys.executable, "build.py"])
-        print("✅ PyInstaller build completed successfully")
+        print("PyInstaller build completed successfully")
     except subprocess.CalledProcessError as e:
-        print(f"❌ PyInstaller build failed: {e}")
+        print(f"PyInstaller build failed: {e}")
         return 1
 
-    # Verify that all necessary files exist before running Inno Setup
     required_files = [
         "dist/timesync.exe",
         "dist/version.txt",
@@ -194,32 +185,28 @@ def main():
             missing_files.append(file_path)
 
     if missing_files:
-        print(f"❌ Error: Missing required files: {missing_files}")
+        print(f"Error: Missing required files: {missing_files}")
         return 1
 
-    print("✅ All required files present, proceeding with installer creation...")
+    print("All required files present, proceeding with installer creation...")
 
-    # Run Inno Setup
-    print("📦 Running Inno Setup...")
+    print("Running Inno Setup...")
     inno_script = os.path.abspath("timesync-installer.iss")
 
-    # Run Inno Setup compiler
     iscc_path = "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe"
     if not os.path.exists(iscc_path):
-        # Try alternate path
         iscc_path = "C:\\Program Files\\Inno Setup 6\\ISCC.exe"
         if not os.path.exists(iscc_path):
-            print("❌ Error: Could not find Inno Setup Compiler (ISCC.exe)")
+            print("Error: Could not find Inno Setup Compiler (ISCC.exe)")
             return 1
 
     try:
         subprocess.check_call([iscc_path, inno_script])
-        print("✅ Inno Setup completed successfully")
+        print("Inno Setup completed successfully")
     except subprocess.CalledProcessError as e:
-        print(f"❌ Inno Setup failed: {e}")
+        print(f"Inno Setup failed: {e}")
         return 1
 
-    # Determine installer path based on profile
     if profile_name == "production":
         installer_name = f"timesync-setup-{version}.exe"
         latest_name = "timesync-setup-latest.exe"
@@ -230,27 +217,24 @@ def main():
     installer_path = os.path.join("installer", installer_name)
     latest_path = os.path.join("installer", latest_name)
 
-    # Copy installer to versioned file and latest version
     if os.path.exists(installer_path):
         shutil.copy2(installer_path, latest_path)
 
-        # Verify installer file size
         installer_size = os.path.getsize(installer_path) / 1024 / 1024
 
-        # Build summary with environment info
-        print("\n" + "=" * 50)
-        print("🎉 BUILD COMPLETED SUCCESSFULLY!")
         print("=" * 50)
-        print(f"📦 Installer: {installer_name} ({installer_size:.2f} MB)")
-        print(f"🔄 Latest Copy: {latest_name}")
-        print(f"🎯 Environment: {profile_config['environment']}")
-        print(f"🌐 API URL: {profile_config['api_url']}")
-        print(f"🔄 Update Server: {profile_config['update_server_url']}")
-        print(f"💾 Database Suffix: '{profile_config.get('database_suffix', '')}'")
+        print("BUILD COMPLETED SUCCESSFULLY")
+        print("=" * 50)
+        print(f"Installer: {installer_name} ({installer_size:.2f} MB)")
+        print(f"Latest Copy: {latest_name}")
+        print(f"Environment: {profile_config['environment']}")
+        print(f"API URL: {profile_config['api_url']}")
+        print(f"Update Server: {profile_config['update_server_url']}")
+        print(f"Database Suffix: '{profile_config.get('database_suffix', '')}'")
 
         return 0
     else:
-        print(f"❌ Error: Installer not found at {installer_path}")
+        print(f"Error: Installer not found at {installer_path}")
         return 1
 
 

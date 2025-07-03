@@ -1,0 +1,18 @@
+{
+  "environment": "staging",
+  "api_url": "https://app-staging.rh-partner.com",
+  "update_server_url": "https://timesync-staging.rh-partner.com/api/updates",
+  "database_suffix": "_staging",
+  "ui_config": {
+    "header_color": "#FFA500",
+    "environment_badge": "STAGING",
+    "show_environment_indicator": true,
+    "window_title_suffix": " [STAGING]"
+  },
+  "deployment": {
+    "server_host": "75.119.129.19",
+    "server_path": "/root/sirh/time-sync-staging/downloads",
+    "ssh_key_secret": "SSH_PRIVATE_KEY_STAGING",
+    "admin_key_secret": "ADMIN_KEY_STAGING"
+  }
+}

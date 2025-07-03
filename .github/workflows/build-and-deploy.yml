@@ -1,66 +1,186 @@
-name: Build and Deploy Time Attendance System
+name: Build and Deploy Multi-Environment Time Attendance System
 
 on:
   push:
-#    paths:
-#      - 'version.txt'
-    branches:
-      - master
+    branches: [dev, staging, master]
+    paths:
+      - 'version.txt'
+      - 'version_dev.txt'
+      - 'version_staging.txt'
+      - 'src/**'
+      - 'profiles/**'
+      - '.github/**'
 
 env:
-  # Non-sensitive configuration variables
-  SERVER_HOST: "157.173.97.199"
+  # Shared non-sensitive configuration
   SERVER_USER: "root"
-  SERVER_PATH: "/root/sirh/time-sync/downloads"
-  UPDATE_SERVER_URL: "http://timesync-dev.rh-partner.com"
+  SERVER_BASE_PATH: "/root/sirh"
 
 jobs:
-  build-and-deploy:
-    runs-on: windows-latest
+  detect-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.detect.outputs.environment }}
+      profile: ${{ steps.detect.outputs.profile }}
+      version_file: ${{ steps.detect.outputs.version_file }}
+      version: ${{ steps.version.outputs.version }}
+      installer_name: ${{ steps.version.outputs.installer_name }}     
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Read version from file
+      - name: Detect Environment and Version
+        id: detect
+        run: |
+          echo "🔍 Detecting environment from branch: ${{ github.ref }}"
+          
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "profile=dev" >> $GITHUB_OUTPUT
+            echo "version_file=version_dev.txt" >> $GITHUB_OUTPUT
+            echo "📍 Detected: Development Environment"
+            
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "profile=staging" >> $GITHUB_OUTPUT
+            echo "version_file=version_staging.txt" >> $GITHUB_OUTPUT
+            echo "📍 Detected: Staging Environment"
+            
+          elif [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "profile=prod" >> $GITHUB_OUTPUT
+            echo "version_file=version.txt" >> $GITHUB_OUTPUT
+            echo "📍 Detected: Production Environment"
+            
+          else
+            echo "❌ Unknown branch: ${{ github.ref }}"
+            exit 1
+          fi
+
+      - name: Read Version
         id: version
         run: |
-          $version = Get-Content version.txt -Raw
-          $version = $version.Trim()
-          echo "VERSION=$version" >> $env:GITHUB_ENV
-          echo "INSTALLER_NAME=timesync-setup-$version.exe" >> $env:GITHUB_ENV
-          echo "LOCAL_INSTALLER_PATH=installer/timesync-setup-$version.exe" >> $env:GITHUB_ENV
-          echo "📋 Version: $version"
-          echo "📦 Installer: timesync-setup-$version.exe"
-        shell: pwsh
+          # Determine version file based on environment
+          VERSION_FILE="${{ steps.detect.outputs.version_file }}"
+          echo "📄 Using version file: $VERSION_FILE"
+          
+          # Fallback to main version.txt if profile-specific doesn't exist
+          if [[ ! -f "$VERSION_FILE" ]]; then
+            echo "⚠️ Profile-specific version file not found: $VERSION_FILE"
+            echo "📋 Falling back to version.txt"
+            VERSION_FILE="version.txt"
+          fi
+          
+          if [[ ! -f "$VERSION_FILE" ]]; then
+            echo "❌ No version file found!"
+            exit 1
+          fi
+          
+          VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+          PROFILE="${{ steps.detect.outputs.profile }}"
+          
+          # FIXED: Remove duplicate line and ensure VERSION is not empty
+          if [[ -z "$VERSION" ]]; then
+            echo "❌ Version is empty!"
+            exit 1
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "profile=$PROFILE" >> $GITHUB_OUTPUT
+          
+          # Set installer name based on profile
+          if [[ "$PROFILE" == "prod" ]]; then
+            INSTALLER_NAME="timesync-setup-$VERSION.exe"
+          else
+            INSTALLER_NAME="timesync-setup-$PROFILE-$VERSION.exe"
+          fi
+          
+          echo "installer_name=$INSTALLER_NAME" >> $GITHUB_OUTPUT
+          
+          echo "📋 Version: $VERSION"
+          echo "🎯 Profile: $PROFILE"
+          echo "📦 Installer: $INSTALLER_NAME"
 
-      # === SSH SETUP FIRST ===
+  build-and-deploy:
+    needs: detect-environment
+    runs-on: windows-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}
+
+    env:
+      VERSION: ${{ needs.detect-environment.outputs.version }}
+      PROFILE: ${{ needs.detect-environment.outputs.profile }}
+      INSTALLER_NAME: ${{ needs.detect-environment.outputs.installer_name }}
+      LOCAL_INSTALLER_PATH: installer/${{ needs.detect-environment.outputs.installer_name }}  # FIXED: Use job output directly
+
+    steps:
+      - name: Environment Info
+        run: |
+          echo "🚀 Starting Build for Environment: ${{ env.PROFILE }}"
+          echo "📋 Version: ${{ env.VERSION }}"
+          echo "📦 Installer: ${{ env.INSTALLER_NAME }}"
+          echo "📁 Local Path: ${{ env.LOCAL_INSTALLER_PATH }}"  # ADDED: Debug info
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # === SSH SETUP ===
       - name: Setup SSH key
         run: |
-          echo "🔑 Setting up SSH key..."
+          echo "🔑 Setting up SSH key for ${{ env.PROFILE }} for HOST: ${{ secrets.DEV_SERVER_HOST }}"
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          
+          # Use environment-specific SSH key
+          if [[ "${{ env.PROFILE }}" == "dev" ]]; then
+            echo "${{ secrets.SSH_PRIVATE_KEY_DEV }}" > ~/.ssh/deploy_key
+            SERVER_HOST="${{ secrets.DEV_SERVER_HOST }}"
+          elif [[ "${{ env.PROFILE }}" == "staging" ]]; then
+            echo "${{ secrets.SSH_PRIVATE_KEY_STAGING }}" > ~/.ssh/deploy_key
+            SERVER_HOST="${{ secrets.STAGING_SERVER_HOST }}"
+          elif [[ "${{ env.PROFILE }}" == "prod" ]]; then
+            echo "${{ secrets.SSH_PRIVATE_KEY_PROD }}" > ~/.ssh/deploy_key
+            SERVER_HOST="${{ secrets.PROD_SERVER_HOST }}"
+          fi
+          
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
-          echo "✅ SSH key configured"
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+          echo "SERVER_HOST=$SERVER_HOST" >> $GITHUB_ENV
+          echo "✅ SSH key configured for $SERVER_HOST"
+        shell: bash
+
+      - name: Get Environment Configuration
+        run: |
+          # Load profile configuration to get deployment details
+          PROFILE_FILE="profiles/${{ env.PROFILE }}.json"
+          
+          if [[ ! -f "$PROFILE_FILE" ]]; then
+            echo "❌ Profile file not found: $PROFILE_FILE"
+            exit 1
+          fi
+          
+          # Extract deployment configuration using jq
+          SERVER_PATH=$(cat "$PROFILE_FILE" | jq -r '.deployment.server_path')
+          
+          echo "SERVER_PATH=$SERVER_PATH" >> $GITHUB_ENV
+          echo "🗂️ Deployment Path: $SERVER_PATH"
         shell: bash
 
       - name: Check existing version on server
         run: |
           echo "🔍 Checking if version ${{ env.VERSION }} already exists on server..."
           
-          # Use SSH to check if file exists
-          $checkResult = ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "if [ -f ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }} ]; then echo 'EXISTS'; else echo 'NOT_EXISTS'; fi"
+          CHECK_RESULT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "if [ -f ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }} ]; then echo 'EXISTS'; else echo 'NOT_EXISTS'; fi")
           
-          if ($checkResult -eq "EXISTS") {
+          if [[ "$CHECK_RESULT" == "EXISTS" ]]; then
             echo "❌ Version ${{ env.VERSION }} already exists on server."
             echo "To overwrite, delete the existing file first or use a different version."
             exit 1
-          } else {
+          else
             echo "✅ Version ${{ env.VERSION }} does not exist. Proceeding with build."
-          }
-        shell: pwsh
+          fi
+        shell: bash
 
+      # === BUILD SECTION ===
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -71,14 +191,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build installer
+      - name: Build installer with profile
         run: |
-          echo "🔨 Building installer for version ${{ env.VERSION }}..."
-          python ci_build.py --version ${{ env.VERSION }}
+          echo "🔨 Building installer for ${{ env.PROFILE }} environment..."
+          echo "📋 Version: ${{ env.VERSION }}"  # ADDED: Debug info
+          python ci_build.py --version "${{ env.VERSION }}" --profile "${{ env.PROFILE }}"
+        shell: bash
 
       - name: Verify build output
         run: |
           echo "✅ Checking build output..."
+          echo "📁 Looking for: ${{ env.LOCAL_INSTALLER_PATH }}"  # ADDED: Debug info
+          
           if (Test-Path "${{ env.LOCAL_INSTALLER_PATH }}") {
             $fileSize = (Get-Item "${{ env.LOCAL_INSTALLER_PATH }}").Length
             $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
@@ -86,6 +210,12 @@ jobs:
             echo "BUILD_SUCCESS=true" >> $env:GITHUB_ENV
           } else {
             echo "❌ Installer not found at: ${{ env.LOCAL_INSTALLER_PATH }}"
+            echo "📂 Listing installer directory contents:"
+            if (Test-Path "installer") {
+              Get-ChildItem "installer" | ForEach-Object { echo "  - $($_.Name)" }
+            } else {
+              echo "  Installer directory does not exist"
+            }
             exit 1
           }
         shell: pwsh
@@ -93,18 +223,18 @@ jobs:
       # === DEPLOYMENT SECTION ===
       - name: Deploy installer to server
         run: |
-          echo "🚀 Deploying ${{ env.INSTALLER_NAME }} to server..."
+          echo "🚀 Deploying ${{ env.INSTALLER_NAME }} to ${{ env.PROFILE }} server..."
           
           # Copy file to server using SCP
           scp -i ~/.ssh/deploy_key "${{ env.LOCAL_INSTALLER_PATH }}" ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.SERVER_PATH }}/
           
-          if ($LASTEXITCODE -eq 0) {
+          if [[ $? -eq 0 ]]; then
             echo "✅ File uploaded successfully"
-          } else {
+          else
             echo "❌ Upload failed"
             exit 1
-          }
-        shell: pwsh
+          fi
+        shell: bash
 
       - name: Set file permissions on server
         run: |
@@ -114,50 +244,61 @@ jobs:
           ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "chmod 644 ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }}"
           
           # Verify file was uploaded correctly
-          $remoteSize = ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "stat -c%s ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }}"
+          REMOTE_SIZE=$(ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "stat -c%s ${{ env.SERVER_PATH }}/${{ env.INSTALLER_NAME }}")
           
-          echo "✅ Deployment successful: ${{ env.INSTALLER_NAME }} uploaded ($remoteSize bytes)"
-        shell: pwsh
+          echo "✅ Deployment successful: ${{ env.INSTALLER_NAME }} uploaded ($REMOTE_SIZE bytes)"
+        shell: bash
 
-      # DIRECT VERSION FILE UPDATE
+      # === UPDATE SERVER VERSION MANAGEMENT ===
       - name: Update version file on server
         run: |
           echo "📝 Updating versions.json file on server..."
           
-          # Read current versions.json from server
-          echo "🔍 Reading current versions.json..."
-          $currentVersions = ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat /root/sirh/time-sync/app-data/versions.json"
-          echo "Current versions.json content: $currentVersions"
+          # Get the appropriate app-data path for this environment
+          if [[ "${{ env.PROFILE }}" == "dev" ]]; then
+            APP_DATA_PATH="/root/sirh/time-sync/app-data"
+          elif [[ "${{ env.PROFILE }}" == "staging" ]]; then
+            APP_DATA_PATH="/root/sirh/time-sync-staging/app-data"
+          elif [[ "${{ env.PROFILE }}" == "prod" ]]; then
+            APP_DATA_PATH="/root/sirh/time-sync-prod/app-data"
+          fi
+          
+          echo "📁 App Data Path: $APP_DATA_PATH"
+          
+          # Ensure app-data directory exists
+          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p $APP_DATA_PATH"
           
           # Create updated versions.json content
-          $newVersionData = @{
-            latest = @{
-              version = "${{ env.VERSION }}"
-              notes = "Automated release from GitHub Actions - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-            }
-            versions = @{
-              "${{ env.VERSION }}" = @{
-                notes = "Automated release from GitHub Actions"
-                releaseDate = "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          VERSION_JSON=$(cat << EOF
+          {
+            "latest": {
+              "version": "${{ env.VERSION }}",
+              "notes": "Automated release from GitHub Actions - ${{ env.PROFILE }} environment - $(date '+%Y-%m-%d %H:%M:%S')"
+            },
+            "versions": {
+              "${{ env.VERSION }}": {
+                "notes": "Automated release from GitHub Actions",
+                "releaseDate": "$TIMESTAMP",
+                "environment": "${{ env.PROFILE }}"
               }
             }
           }
-          
-          # Convert to JSON
-          $jsonContent = $newVersionData | ConvertTo-Json -Depth 3 -Compress
-          echo "📝 New JSON content: $jsonContent"
+          EOF
+          )
           
           # Write updated versions.json to server
-          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "echo '$jsonContent' > /root/sirh/time-sync/app-data/versions.json"
+          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "echo '$VERSION_JSON' > $APP_DATA_PATH/versions.json"
           
           # Verify the update
           echo "✅ Verifying update..."
-          $updatedContent = ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat /root/sirh/time-sync/app-data/versions.json"
-          echo "Updated versions.json: $updatedContent"
+          UPDATED_CONTENT=$(ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat $APP_DATA_PATH/versions.json")
+          echo "Updated versions.json: $UPDATED_CONTENT"
           
-          echo "✅ Version ${{ env.VERSION }} registered successfully in versions.json"
-        shell: pwsh
+          echo "✅ Version ${{ env.VERSION }} registered successfully in ${{ env.PROFILE }} environment"
+        shell: bash
 
+      # === CLEANUP ===
       - name: Cleanup SSH key
         if: always()
         run: |
@@ -168,16 +309,20 @@ jobs:
         if: env.BUILD_SUCCESS == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: timesync-installer-${{ env.VERSION }}
+          name: timesync-installer-${{ env.PROFILE }}-${{ env.VERSION }}
           path: installer/*.exe
           retention-days: 30
 
+      # === SUMMARY ===
       - name: Deployment summary
         if: success()
         run: |
-          echo "🎉 Deployment completed successfully!"
-          echo "📦 Version: ${{ env.VERSION }}"
+          echo "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!"
+          echo "=================================="
+          echo "🎯 Environment: ${{ env.PROFILE }}"
+          echo "📋 Version: ${{ env.VERSION }}"
           echo "📁 Installer: ${{ env.INSTALLER_NAME }}"
-          echo "🔗 Download URL: ${{ env.UPDATE_SERVER_URL }}/api/updates/download"
-          echo "📋 Version file updated: /root/sirh/time-sync/app-data/versions.json"
-        shell: pwsh
+          echo "🌐 Server: ${{ env.SERVER_HOST }}"
+          echo "📂 Path: ${{ env.SERVER_PATH }}"
+          echo "⏰ Completed: $(date '+%Y-%m-%d %H:%M:%S')"
+        shell: bash

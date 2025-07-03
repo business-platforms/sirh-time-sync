@@ -76,6 +76,7 @@ jobs:
           fi
           
           VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT  
           PROFILE="${{ steps.detect.outputs.profile }}"
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT

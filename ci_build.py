@@ -21,11 +21,9 @@ def load_profile_config(profile_name):
     """Load profile configuration from JSON file."""
     # Map short names to full names for file lookup
     profile_mapping = {
-        'dev': 'development',
-        'development': 'development',
+        'dev': 'dev',
         'staging': 'staging',
-        'prod': 'production',
-        'production': 'production'
+        'prod': 'prod',
     }
 
     full_profile_name = profile_mapping.get(profile_name, profile_name)
@@ -43,7 +41,7 @@ def load_profile_config(profile_name):
 def get_production_profile():
     """Get production profile as fallback."""
     return {
-        "environment": "production",
+        "environment": "prod",
         "api_url": "https://app.rh-partner.com",
         "update_server_url": "https://timesync.rh-partner.com/api/updates",
         "database_suffix": "",
@@ -117,7 +115,7 @@ def update_installer_version(version, profile_name):
         )
 
         # Update app name for non-production environments
-        if profile_name not in ['prod', 'production']:
+        if profile_name not in ['prod', 'prod']:
             env_name = profile_name.upper()
             script_content = script_content.replace(
                 '#define MyAppName "Time Attendance System"',
@@ -142,7 +140,7 @@ def main():
     parser = argparse.ArgumentParser(description='Build the Time Attendance System application')
     parser.add_argument('--version', required=True, help='Version number (e.g., 1.0.0)')
     parser.add_argument('--profile', default='dev',
-                        choices=['dev', 'development', 'staging', 'prod', 'production'],
+                        choices=['dev', 'staging', 'prod'],
                         help='Environment profile to build for (default: dev)')
     args = parser.parse_args()
 
@@ -228,7 +226,7 @@ def main():
         return 1
 
     # Determine installer name based on profile
-    if profile_name in ['prod', 'production']:
+    if profile_name in ['prod', 'prod']:
         installer_name = f"timesync-setup-{version}.exe"
         latest_name = "timesync-setup-latest.exe"
     else:

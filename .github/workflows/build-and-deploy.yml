@@ -23,6 +23,8 @@ jobs:
       environment: ${{ steps.detect.outputs.environment }}
       profile: ${{ steps.detect.outputs.profile }}
       version_file: ${{ steps.detect.outputs.version_file }}
+      version: ${{ steps.version.outputs.version }}
+      installer_name: ${{ steps.version.outputs.installer_name }}     
 
     steps:
       - name: Checkout code
@@ -76,8 +78,13 @@ jobs:
           fi
           
           VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT  
           PROFILE="${{ steps.detect.outputs.profile }}"
+          
+          # FIXED: Remove duplicate line and ensure VERSION is not empty
+          if [[ -z "$VERSION" ]]; then
+            echo "❌ Version is empty!"
+            exit 1
+          fi
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "profile=$PROFILE" >> $GITHUB_OUTPUT
@@ -95,13 +102,6 @@ jobs:
           echo "🎯 Profile: $PROFILE"
           echo "📦 Installer: $INSTALLER_NAME"
 
-      - name: Set Environment Variables
-        run: |
-          echo "VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_ENV
-          echo "PROFILE=${{ steps.detect.outputs.profile }}" >> $GITHUB_ENV
-          echo "INSTALLER_NAME=${{ steps.version.outputs.installer_name }}" >> $GITHUB_ENV
-          echo "LOCAL_INSTALLER_PATH=installer/${{ steps.version.outputs.installer_name }}" >> $GITHUB_ENV
-
   build-and-deploy:
     needs: detect-environment
     runs-on: windows-latest
@@ -111,6 +111,7 @@ jobs:
       VERSION: ${{ needs.detect-environment.outputs.version }}
       PROFILE: ${{ needs.detect-environment.outputs.profile }}
       INSTALLER_NAME: ${{ needs.detect-environment.outputs.installer_name }}
+      LOCAL_INSTALLER_PATH: installer/${{ needs.detect-environment.outputs.installer_name }}  # FIXED: Use job output directly
 
     steps:
       - name: Environment Info
@@ -118,6 +119,7 @@ jobs:
           echo "🚀 Starting Build for Environment: ${{ env.PROFILE }}"
           echo "📋 Version: ${{ env.VERSION }}"
           echo "📦 Installer: ${{ env.INSTALLER_NAME }}"
+          echo "📁 Local Path: ${{ env.LOCAL_INSTALLER_PATH }}"  # ADDED: Debug info
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -192,12 +194,15 @@ jobs:
       - name: Build installer with profile
         run: |
           echo "🔨 Building installer for ${{ env.PROFILE }} environment..."
+          echo "📋 Version: ${{ env.VERSION }}"  # ADDED: Debug info
           python ci_build.py --version "${{ env.VERSION }}" --profile "${{ env.PROFILE }}"
         shell: bash
 
       - name: Verify build output
         run: |
           echo "✅ Checking build output..."
+          echo "📁 Looking for: ${{ env.LOCAL_INSTALLER_PATH }}"  # ADDED: Debug info
+          
           if (Test-Path "${{ env.LOCAL_INSTALLER_PATH }}") {
             $fileSize = (Get-Item "${{ env.LOCAL_INSTALLER_PATH }}").Length
             $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
@@ -205,6 +210,12 @@ jobs:
             echo "BUILD_SUCCESS=true" >> $env:GITHUB_ENV
           } else {
             echo "❌ Installer not found at: ${{ env.LOCAL_INSTALLER_PATH }}"
+            echo "📂 Listing installer directory contents:"
+            if (Test-Path "installer") {
+              Get-ChildItem "installer" | ForEach-Object { echo "  - $($_.Name)" }
+            } else {
+              echo "  Installer directory does not exist"
+            }
             exit 1
           }
         shell: pwsh

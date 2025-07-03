@@ -1,6 +1,8 @@
 import os
 import sys
 
+from src.core.profile_manager import ProfileManager
+
 
 def get_persistent_data_path():
     """Get a persistent path for application data."""
@@ -29,8 +31,15 @@ def get_persistent_data_path():
 
 
 def get_database_path():
-    """Get the path to the database file."""
-    return os.path.join(get_persistent_data_path(), "attendance.db")
+    """Get the path to the database file with environment suffix."""
+    try:
+        profile_manager = ProfileManager()
+        suffix = profile_manager.get_database_suffix()
+        database_name = f"attendance{suffix}.db"
+        return os.path.join(get_persistent_data_path(), database_name)
+    except Exception as e:
+        # Fallback to production database name if profile loading fails
+        return os.path.join(get_persistent_data_path(), "attendance.db")
 
 
 def get_logs_path():

@@ -9,6 +9,7 @@ on:
       - 'version_staging.txt'
       - 'src/**'
       - 'profiles/**'
+      - '.github/**'
 
 env:
   # Shared non-sensitive configuration
@@ -122,7 +123,7 @@ jobs:
       # === SSH SETUP ===
       - name: Setup SSH key
         run: |
-          echo "🔑 Setting up SSH key for ${{ env.PROFILE }} for HOST: ${{ vars.PROD_SERVER_HOST }}"
+          echo "🔑 Setting up SSH key for ${{ env.PROFILE }} for HOST: ${{ vars.DEV_SERVER_HOST }}"
           mkdir -p ~/.ssh
           
           # Use environment-specific SSH key
